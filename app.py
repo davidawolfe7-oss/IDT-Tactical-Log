@@ -61,13 +61,21 @@ current_rate = rates[trip_cat]
 st.divider()
 col1, col2 = st.columns(2)
 
+# --- INITIALIZE VARIABLES TO PREVENT SCOPE ERRORS ---
+last_odo = get_last_odo(active_unit)
+start_odo = last_odo
+end_odo = last_odo
+miles = 0.0
+airfare = 0.0
+airport_parking = 0.0
+rental_cost = 0.0
+rental_fuel = 0.0
+
 with col1:
     m_date = st.date_input("MISSION DATE", datetime.now())
     
     if t_mode == "POV (Personal Vehicle)":
-        last_odo = get_last_odo(active_unit)
         st.caption(f"Last Odometer for {active_unit}: {last_odo}")
-        # SEQUENTIAL AUTO-FILL
         start_odo = st.number_input("START ODOMETER", value=last_odo, step=0.1)
         end_odo = st.number_input("END ODOMETER", value=start_odo + 1.0, step=0.1)
         miles = max(0.0, end_odo - start_odo)
@@ -80,7 +88,7 @@ with col1:
     else: # Rental Fleet
         rental_cost = st.number_input("RENTAL CONTRACT ($)", min_value=0.0, step=0.01)
         rental_fuel = st.number_input("RENTAL FUEL RECEIPTS ($)", min_value=0.0, step=0.01)
-        miles = 0.0 # Rental uses actual fuel costs
+        miles = 0.0 
 
 with col2:
     st.subheader("ADDITIONAL EXPENSES")
@@ -112,12 +120,13 @@ st.markdown(f"""
     """, unsafe_allow_html=True)
 
 if st.button("💾 SAVE LOG ENTRY", use_container_width=True):
-    # Save Odometer Chain: Use end_odo for POV, otherwise keep previous chain
-    save_odo = end_odo if t_mode == "POV (Personal Vehicle)" else last_odo
+    # Determine the values to persist in the DB
+    save_start = start_odo if t_mode == "POV (Personal Vehicle)" else 0.0
+    save_end = end_odo if t_mode == "POV (Personal Vehicle)" else last_odo
     
     conn.execute('''INSERT INTO logs (date, vehicle_name, start_odo, end_odo, total_deduction, reimbursement) 
                     VALUES (?, ?, ?, ?, ?, ?)''', 
-                 (str(m_date), active_unit, start_odo if t_mode == "POV (Personal Vehicle)" else 0, save_odo, final_deduction, reimbursement))
+                 (str(m_date), active_unit, save_start, save_end, final_deduction, reimbursement))
     conn.commit()
     st.markdown(f"<div class='success-banner'>SUCCESS: ${final_deduction:,.2f} LOGGED. ODOMETER CHAIN UPDATED.</div>", unsafe_allow_html=True)
 

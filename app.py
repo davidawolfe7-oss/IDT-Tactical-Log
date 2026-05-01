@@ -6,125 +6,110 @@ from datetime import datetime
 # Initialize Database
 init_db()
 
-# --- NIGHT OPS UI WITH AMERICAN FLAG BACKGROUND ---
+# --- THEME & STYLING (Including American Flag) ---
 st.set_page_config(page_title="Mil-Pro Command", layout="wide", page_icon="🇺🇸")
-
 st.markdown("""
     <style>
     .stApp {
-        background: 
-            linear-gradient(rgba(14, 17, 23, 0.85), rgba(14, 17, 23, 0.85)),
-            url('https://upload.wikimedia.org/wikipedia/en/a/a4/Flag_of_the_United_States.svg');
-        background-size: cover;
-        background-position: center;
-        background-attachment: fixed;
-        color: #FFFFFF;
+        background: linear-gradient(rgba(14, 17, 23, 0.8), rgba(14, 17, 23, 0.8)),
+                    url('https://upload.wikimedia.org/wikipedia/en/a/a4/Flag_of_the_United_States.svg');
+        background-size: cover; background-position: center; background-attachment: fixed;
     }
-    [data-testid="stHeader"] { background: rgba(0,0,0,0); }
-    .stButton>button { 
-        background-color: #cc0000; 
-        color: white; 
-        border: 1px solid #ff0000;
-        font-weight: bold;
-    }
-    .metric-container {
-        background: rgba(255, 255, 255, 0.1);
-        padding: 20px;
-        border-radius: 10px;
-        border-left: 5px solid #0052a5;
-        margin-bottom: 20px;
-    }
-    h1, h2, h3 { color: #FFFFFF !important; text-shadow: 2px 2px 4px #000; }
+    .stNumberInput, .stSelectbox, .stDateInput { background: rgba(255,255,255,0.05) !important; }
+    .success-banner { padding: 15px; background: #002200; border: 1px solid #00ff00; border-radius: 5px; color: #00ff00; font-weight: bold; }
     </style>
     """, unsafe_allow_html=True)
 
-# --- SIDEBAR: FLEET & PERSISTENT GARAGE ---
-st.sidebar.title("🇺🇸 MIL-PRO COMMAND")
 conn = get_connection()
 
-vehicles = pd.read_sql("SELECT name, mpg FROM vehicles", conn)
-active_unit = st.sidebar.selectbox("PRIMARY VEHICLE", vehicles['name'] if not vehicles.empty else ["No Vehicles Found"])
+# --- SIDEBAR: UNIT PERSISTENCE ---
+st.sidebar.title("🇺🇸 MIL-PRO COMMAND")
+vehicles = pd.read_sql("SELECT name FROM vehicles", conn)
+active_unit = st.sidebar.selectbox("ACTIVE VEHICLE", vehicles['name'] if not vehicles.empty else ["No Vehicles Registered"])
 
-with st.sidebar.expander("➕ REGISTER NEW VEHICLE"):
-    new_v = st.text_input("Vehicle Name (e.g., F-150)")
-    new_mpg = st.number_input("MPG", value=18.0)
-    if st.button("ADD TO GARAGE"):
-        if new_v:
-            try:
-                conn.execute("INSERT INTO vehicles (name, mpg) VALUES (?, ?)", (new_v, new_mpg))
-                conn.commit()
-                st.rerun()
-            except: st.error("Name already exists.")
+# --- AUTOMATED ODOMETER LOGIC ---
+def get_last_odo(unit_name):
+    query = "SELECT end_odo FROM logs WHERE vehicle_name = ? ORDER BY id DESC LIMIT 1"
+    res = conn.execute(query, (unit_name,)).fetchone()
+    return res[0] if res else 0.0
 
-# --- MAIN INTERFACE ---
+# --- MAIN UI ---
 st.title("TACTICAL MOVEMENT & EXPENSE LOG")
 
-# LOGIC: TRIP CATEGORY & RATES
-col_cat, col_mode = st.columns(2)
-with col_cat:
-    trip_cat = st.selectbox("TRIP CATEGORY", ["Business / Military", "Medical", "Charity", "Personal / Commute"])
-with col_mode:
-    t_mode = st.radio("TRAVEL MODE", ["POV (Personal)", "Commercial Flight", "Rental Fleet"], horizontal=True)
+trip_cat = st.selectbox("TRIP PURPOSE", ["Business / Military", "Medical", "Charity", "Personal"])
+t_mode = st.radio("TRAVEL SEGMENT", ["POV (Personal Vehicle)", "Commercial Flight", "Rental Car / Fleet"], horizontal=True)
 
-# IRS 2026 RATES ENGINE
-rates = {"Business / Military": 0.725, "Medical": 0.22, "Charity": 0.14, "Personal / Commute": 0.0}
+# 2026 IRS Rates
+rates = {"Business / Military": 0.725, "Medical": 0.22, "Charity": 0.14, "Personal": 0.0}
 current_rate = rates[trip_cat]
 
 st.divider()
-
 col1, col2 = st.columns(2)
 
+# --- SEGMENTED ENTRY LOGIC ---
 with col1:
     m_date = st.date_input("DATE", datetime.now())
-    if t_mode == "POV (Personal)":
-        start_odo = st.number_input("START ODOMETER", step=0.1)
-        end_odo = st.number_input("END ODOMETER", step=0.1)
-        miles = max(0.0, end_odo - start_odo)
+    
+    if t_mode == "POV (Personal Vehicle)":
+        last_odo = get_last_odo(active_unit)
+        st.info(f"Last reported Odometer for {active_unit}: {last_odo}")
+        # AUTO-UPDATE START ODO
+        start_odo = st.number_input("START ODOMETER", value=last_odo, step=0.1)
+        end_odo = st.number_input("END ODOMETER", value=start_odo + 1.0, step=0.1)
+        net_miles = max(0.0, end_odo - start_odo)
+        st.metric("Segment Miles", f"{net_miles:.1f}")
         
-        # INTERACTIVE GAP DETECTION
-        last_log = pd.read_sql(f"SELECT end_odo FROM logs WHERE vehicle_name='{active_unit}' ORDER BY id DESC LIMIT 1", conn)
-        if not last_log.empty and start_odo > last_log['end_odo'].iloc[0]:
-            gap = start_odo - last_log['end_odo'].iloc[0]
-            st.warning(f"⚠️ {gap} MILE GAP DETECTED. Miles will be flagged as Personal.")
-    else:
-        miles = st.number_input("TOTAL MILES (TO/FROM HUB)", step=0.1)
-        flight_cost = st.number_input("TICKET / RENTAL COST ($)", value=0.0)
+    elif t_mode == "Commercial Flight":
+        airfare = st.number_input("AIRFARE COST ($)", min_value=0.0, step=0.01)
+        airport_parking = st.number_input("AIRPORT PARKING ($)", min_value=0.0, step=0.01)
+        # Separate mileage for driving to the airport
+        airport_miles = st.number_input("DRIVE TO/FROM AIRPORT (TOTAL MILES)", min_value=0.0, step=0.1)
+        net_miles = airport_miles # Only the miles to the airport get the mileage rate
+        
+    elif t_mode == "Rental Car / Fleet":
+        rental_cost = st.number_input("RENTAL CONTRACT COST ($)", min_value=0.0, step=0.01)
+        rental_fuel = st.number_input("RENTAL FUEL RECEIPTS ($)", min_value=0.0, step=0.01)
+        net_miles = 0.0 # Renters deduct actual fuel, not mileage
 
 with col2:
-    st.subheader("EXPENSES")
-    lodging = st.number_input("LODGING", value=0.0)
-    meals = st.number_input("MEALS (TOTAL)", value=0.0)
-    reimbursement = st.number_input("REIMBURSEMENT / STIPEND", value=0.0)
+    st.subheader("ADDITIONAL EXPENSES")
+    lodging = st.number_input("LODGING", min_value=0.0, step=0.01)
+    meals = st.number_input("TOTAL MEALS / PER DIEM", min_value=0.0, step=0.01)
+    reimbursement = st.number_input("UNIT REIMBURSEMENT (IDT CAP)", value=0.0, step=0.01)
 
 # --- THE CALCULATION ENGINE ---
-mileage_deduction = miles * current_rate
-meal_deduction = meals * 0.50 # IRS 50% Limit
-subtotal = mileage_deduction + meal_deduction + lodging
-if t_mode != "POV (Personal)":
-    subtotal += flight_cost
+mileage_cash = net_miles * current_rate
+meal_cash = meals * 0.50 # IRS 50% Rule
+
+if t_mode == "POV (Personal Vehicle)":
+    subtotal = mileage_cash + lodging + meal_cash
+elif t_mode == "Commercial Flight":
+    subtotal = airfare + airport_parking + mileage_cash + lodging + meal_cash
+else: # Rental
+    subtotal = rental_cost + rental_fuel + lodging + meal_cash
 
 final_deduction = max(0.0, subtotal - reimbursement)
 
-# --- SUCCESS BOX & SAVE ---
-st.markdown(f"""
-    <div class="metric-container">
-        <h3>Estimated Deduction: ${final_deduction:,.2f}</h3>
-        <p>Rate Applied: ${current_rate}/mile | Category: {trip_cat}</p>
-    </div>
-    """, unsafe_allow_html=True)
+st.divider()
+
+# --- DISPLAY & SAVE ---
+st.subheader(f"Calculated Deduction: ${final_deduction:,.2f}")
 
 if st.button("💾 SAVE LOG ENTRY", use_container_width=True):
+    # Determine what to save as "end_odo" to maintain the chain
+    # If POV, we save the end_odo. If others, we keep the odometer where it was.
+    save_odo = end_odo if t_mode == "POV (Personal Vehicle)" else last_odo
+    
     conn.execute('''INSERT INTO logs (date, vehicle_name, start_odo, end_odo, total_deduction, reimbursement) 
                     VALUES (?, ?, ?, ?, ?, ?)''', 
-                 (str(m_date), active_unit, 0 if t_mode != "POV (Personal)" else start_odo, miles, final_deduction, reimbursement))
+                 (str(m_date), active_unit, start_odo if t_mode == "POV" else 0, save_odo, final_deduction, reimbursement))
     conn.commit()
-    st.success("Entry logged successfully.")
+    st.markdown(f"<div class='success-banner'>SUCCESS: ${final_deduction:,.2f} logged for {trip_cat}. Start odometer for next trip updated to {save_odo}.</div>", unsafe_allow_html=True)
 
-# --- EXECUTIVE EXPORT ---
-st.divider()
-st.subheader("ACCOUNTANT-READY DATA")
-all_data = pd.read_sql("SELECT date, vehicle_name, end_odo as miles, total_deduction as deduction FROM logs", conn)
-st.dataframe(all_data, use_container_width=True)
+# --- REFRESHED EXPORT ---
+st.subheader("ACCOUNTANT-READY EXPORT")
+all_logs = pd.read_sql("SELECT date, vehicle_name, end_odo as 'Current Odo', total_deduction as 'Deduction ($)' FROM logs", conn)
+st.dataframe(all_logs, use_container_width=True)
 
-if st.button("🟥 EMERGENCY REFRESH (BYPASS NAV TRAP)", type="primary"):
+if st.button("🟥 EMERGENCY REFRESH / CLEAR NAV TRAP", type="primary"):
     st.rerun()

@@ -22,6 +22,8 @@ st.markdown("""
     .metric-card { background: rgba(255,255,255,0.05); padding: 20px; border-radius: 10px; border-left: 5px solid #0052a5; margin-bottom: 20px; }
     .logistics-header { color: #0052a5; font-weight: bold; border-bottom: 1px solid #333; margin-bottom: 15px; }
     .guidance-note { font-style: italic; color: #aaa; font-size: 0.85rem; margin-bottom: 10px; }
+    /* Style for the Return Button to make it stand out */
+    .return-btn > button { background-color: #0052a5 !important; border-color: #002d5a !important; }
     </style>
     """, unsafe_allow_html=True)
 
@@ -89,9 +91,9 @@ else:
 
     st.subheader("🛠️ MISSION LOGISTICS")
     col_check1, col_check2, col_check3 = st.columns(3)
-    with col_check1: use_pov = st.checkbox("POV Driven", value=True, help="Check this if you drove your own vehicle at any point (to drill or to airport).")
-    with col_check2: use_flight = st.checkbox("Commercial Flight", help="Check this to enter ticket costs and airport parking.")
-    with col_check3: use_rental = st.checkbox("Rental Car", help="Check this to enter rental contract costs and fuel receipts.")
+    with col_check1: use_pov = st.checkbox("POV Driven", value=True, help="Check this if you drove your own vehicle at any point.")
+    with col_check2: use_flight = st.checkbox("Commercial Flight", help="Check this for ticket costs and parking.")
+    with col_check3: use_rental = st.checkbox("Rental Car", help="Check this for rental contract and fuel.")
 
     st.divider()
     col_left, col_right = st.columns(2)
@@ -99,7 +101,6 @@ else:
     with col_left:
         if use_pov:
             st.markdown("<div class='logistics-header'>🚗 POV MILEAGE</div>", unsafe_allow_html=True)
-            st.markdown("<p class='guidance-note'>Automatically fills with your last known odometer reading.</p>", unsafe_allow_html=True)
             st.caption(f"Last Odometer: {last_odo}")
             start_odo = st.number_input("START ODOMETER", value=last_odo, key="mil_start", step=0.1)
             end_odo = st.number_input("END ODOMETER", value=start_odo + 1.0, key="mil_end", step=0.1)
@@ -107,20 +108,17 @@ else:
         
         if use_flight:
             st.markdown("<div class='logistics-header'>✈️ FLIGHT DETAILS</div>", unsafe_allow_html=True)
-            st.markdown("<p class='guidance-note'>Enter costs for airfare and airport long-term parking.</p>", unsafe_allow_html=True)
             airfare = st.number_input("AIRFARE TICKET ($)", min_value=0.0, step=0.01)
             parking = st.number_input("AIRPORT PARKING ($)", min_value=0.0, step=0.01)
 
     with col_right:
         if use_rental:
             st.markdown("<div class='logistics-header'>🚘 RENTAL FLEET</div>", unsafe_allow_html=True)
-            st.markdown("<p class='guidance-note'>Note: IRS rules allow actual fuel costs for rentals instead of mileage.</p>", unsafe_allow_html=True)
             rental_cost = st.number_input("RENTAL CONTRACT ($)", min_value=0.0, step=0.01)
             rental_fuel = st.number_input("RENTAL FUEL RECEIPTS ($)", min_value=0.0, step=0.01)
 
         st.markdown("<div class='logistics-header'>💰 PER DIEM & REIMBURSEMENT</div>", unsafe_allow_html=True)
-        st.markdown("<p class='guidance-note'>Defaults to $750 (current IDT cap). Total deduction is calculated after this is subtracted.</p>", unsafe_allow_html=True)
-        lodging = st.number_input("TOTAL LODGING (UNREIMBURSED)", value=0.0, step=0.01)
+        lodging = st.number_input("TOTAL LODGING", value=0.0, step=0.01)
         meals = st.number_input("TOTAL MEAL COSTS", value=0.0, step=0.01)
         reimbursement = st.number_input("GOV REIMBURSEMENT", value=750.0, step=0.01)
 
@@ -134,26 +132,42 @@ st.divider()
 st.markdown(f"""
     <div class="metric-card">
         <h3 style='color:white;'>Projected Net Deduction: ${final_deduction:,.2f}</h3>
-        <p style='color:#ccc;'>Summary: ${miles_pov*current_rate:.2f} Mileage | ${(meals*0.50)+lodging+airfare+parking+rental_cost+rental_fuel:.2f} Other Costs | -${reimbursement} Offset</p>
     </div>
     """, unsafe_allow_html=True)
 
 if st.button("💾 LOCK MISSION LOG", use_container_width=True):
     save_start = start_odo if (screen == "DAILY LOG (Standard)" or use_pov) else 0.0
     save_end = end_odo if (screen == "DAILY LOG (Standard)" or use_pov) else last_odo
-    
     conn.execute('''INSERT INTO logs (date, vehicle_name, start_odo, end_odo, total_deduction, reimbursement) 
-                    VALUES (?, ?, ?, ?, ?, ?)''', 
-                 (str(m_date), active_unit, save_start, save_end, final_deduction, reimbursement))
+                    VALUES (?, ?, ?, ?, ?, ?)''', (str(m_date), active_unit, save_start, save_end, final_deduction, reimbursement))
     conn.commit()
-    st.markdown("<div class='success-banner'>MISSION SECURED. Odometer chain updated for next sortie.</div>", unsafe_allow_html=True)
+    st.markdown("<div class='success-banner'>MISSION SECURED. Odometer chain updated.</div>", unsafe_allow_html=True)
 
-# --- EXPORT ---
+# --- EXPORT & RETURN NAVIGATION ---
 st.divider()
 st.subheader("📊 EXECUTIVE TAX ARCHIVE (2026)")
 report_df = pd.read_sql("SELECT date as 'Mission Window', vehicle_name as 'Unit', CASE WHEN start_odo > 0 THEN (end_odo - start_odo) ELSE end_odo END as 'Qty/Miles', total_deduction as 'Net Deduction ($)' FROM logs", conn)
 st.dataframe(report_df, use_container_width=True)
-st.download_button("📥 DOWNLOAD ACCOUNTANT HAND-OFF (.CSV)", data=report_df.to_csv(index=False).encode('utf-8'), file_name="2026_Tax_Export.csv", mime="text/csv")
 
-if st.button("🟥 EMERGENCY REFRESH", type="primary"):
+# THE DOWNLOAD & RETURN BLOCK
+col_dl, col_ret = st.columns(2)
+
+with col_dl:
+    st.download_button(
+        label="📥 DOWNLOAD ACCOUNTANT HAND-OFF (.CSV)", 
+        data=report_df.to_csv(index=False).encode('utf-8'), 
+        file_name="2026_Tax_Export.csv", 
+        mime="text/csv",
+        use_container_width=True
+    )
+
+with col_ret:
+    st.markdown('<div class="return-btn">', unsafe_allow_html=True)
+    if st.button("🔄 RETURN TO COMMAND CENTER", use_container_width=True):
+        st.rerun()
+    st.markdown('</div>', unsafe_allow_html=True)
+
+if st.button("🟥 EMERGENCY RESET DATABASE (CAUTION)", type="secondary"):
+    conn.execute("DELETE FROM logs")
+    conn.commit()
     st.rerun()

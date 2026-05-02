@@ -1,86 +1,114 @@
 import streamlit as st
 import pandas as pd
-from database import init_db, get_connection
-from datetime import datetime
+from supabase import create_client, Client
+from datetime import datetime, timedelta
 
-# Initialize DB on Startup
-init_db()
+# --- CLOUD CONNECTION ---
+url = st.secrets["SUPABASE_URL"]
+key = st.secrets["SUPABASE_KEY"]
+supabase: Client = create_client(url, key)
 
-# --- THEME & STYLING ---
-st.set_page_config(page_title="IDT Tactical Log", layout="wide")
-st.markdown("""
-    <style>
-    .main { background-color: #0E1117; color: white; }
-    .stButton>button { background-color: #cc0000; color: white; width: 100%; border-radius: 5px; }
-    .success-box { padding: 20px; background-color: #004d00; border-radius: 10px; border: 1px solid #00ff00; }
-    </style>
-    """, unsafe_allow_html=True)
+# --- APP CONFIG ---
+st.set_page_config(page_title="Mil-Pro Command", layout="wide", page_icon="🇺🇸")
 
-# --- SIDEBAR: FLEET MANAGEMENT ---
-st.sidebar.title("🇺🇸 Fleet Command")
-conn = get_connection()
+# --- AUTH LOGIC ---
+if 'user' not in st.session_state:
+    st.session_state.user = None
 
-with st.sidebar.expander("Add New Vehicle"):
-    new_name = st.text_input("Unit Name/ID")
-    new_mpg = st.number_input("MPG", min_value=1.0, value=20.0)
-    if st.button("Register Vehicle"):
-        try:
-            conn.execute("INSERT INTO vehicles (name, mpg) VALUES (?, ?)", (new_name, new_mpg))
-            conn.commit()
-            st.success(f"{new_name} added!")
-        except:
-            st.error("Duplicate Unit Name Detected. Use a unique ID.")
+def login():
+    with st.sidebar:
+        st.title("🔐 ACCESS CONTROL")
+        email = st.text_input("Service Email")
+        password = st.text_input("Password", type="password")
+        col1, col2 = st.columns(2)
+        
+        if col1.button("LOGIN"):
+            try:
+                res = supabase.auth.sign_in_with_password({"email": email, "password": password})
+                st.session_state.user = res.user
+                st.rerun()
+            except Exception as e:
+                st.error("Invalid Credentials")
 
-# Persistent Vehicle Selection
-vehicles_df = pd.read_sql("SELECT name FROM vehicles", conn)
-active_unit = st.sidebar.selectbox("Set Primary Unit", vehicles_df['name'] if not vehicles_df.empty else ["None"])
+        if col2.button("SIGN UP"):
+            try:
+                supabase.auth.sign_up({"email": email, "password": password})
+                st.info("Check your email for a confirmation link!")
+            except Exception as e:
+                st.error(str(e))
 
-# --- MISSION LOG ---
-st.title("Mission Sortie Entry")
-col1, col2 = st.columns(2)
-
-with col1:
-    mission_date = st.date_input("Mission Date", datetime.now())
-    start_odo = st.number_input("Start Odometer", step=0.1)
-    
-    # GAP DETECTION LOGIC
-    last_entry = pd.read_sql(f"SELECT end_odo FROM logs WHERE vehicle_name='{active_unit}' ORDER BY id DESC LIMIT 1", conn)
-    if not last_entry.empty:
-        prev_end = last_entry['end_odo'].iloc[0]
-        if start_odo > prev_end:
-            gap = start_odo - prev_end
-            st.warning(f"⚠️ {gap} mile gap detected since last mission.")
-            gap_cat = st.selectbox("Assign Gap To:", ["Personal", "Business", "Medical", "Charity"])
-        else:
-            gap_cat = "None"
-
-with col2:
-    end_odo = st.number_input("End Odometer", step=0.1)
-    travel_mode = st.selectbox("Travel Mode", ["POV", "Flight", "Rental"])
-    reimbursement = st.number_input("Gov Reimbursement ($)", value=750.0)
-
-# --- IRS CALCULATION ---
-irs_rate = 0.725 # 2026 Business Rate
-net_miles = end_odo - start_odo
-gross_deduction = net_miles * irs_rate
-final_deduction = max(0, gross_deduction - reimbursement)
-
-if st.button("🚀 LOG MISSION"):
-    conn.execute('''INSERT INTO logs (date, vehicle_name, start_odo, end_odo, gap_category, total_deduction, reimbursement) 
-                    VALUES (?, ?, ?, ?, ?, ?, ?)''', 
-                 (mission_date, active_unit, start_odo, end_odo, "Business", final_deduction, reimbursement))
-    conn.commit()
-    st.markdown(f"""<div class='success-box'>MISSION SECURED: You just earned <b>${final_deduction:,.2f}</b> in net deductions.</div>""", unsafe_allow_html=True)
-
-# --- EXPORT & THE NAV TRAP FIX ---
-st.divider()
-st.subheader("Executive Export")
-if st.button("🟥 RETURN TO DASHBOARD (Emergency Bypass)", type="primary"):
+def logout():
+    supabase.auth.sign_out()
+    st.session_state.user = None
     st.rerun()
 
-all_logs = pd.read_sql("SELECT date, vehicle_name, (end_odo - start_odo) as miles, total_deduction FROM logs", conn)
-st.table(all_logs)
+# --- MAIN ROUTING ---
+if st.session_state.user is None:
+    login()
+    st.title("🇺🇸 MIL-PRO COMMAND")
+    st.info("Please login or sign up in the sidebar to access your tactical logs.")
+    st.stop() # Stops the rest of the app from loading
 
-# CSV Export for Accountant
-csv = all_logs.to_csv(index=False).encode('utf-8')
-st.download_button("📥 Download Excel/Numbers File", data=csv, file_name="2026_Tax_Export.csv", mime="text/csv")
+# --- IF LOGGED IN, SHOW THE DASHBOARD ---
+user_id = st.session_state.user.id
+st.sidebar.success(f"Logged in: {st.session_state.user.email}")
+if st.sidebar.button("LOGOUT"):
+    logout()
+
+# --- NEW DATABASE HELPERS (SUPABASE) ---
+def get_vehicles():
+    res = supabase.table("vehicles").select("name").execute()
+    return pd.DataFrame(res.data)
+
+def get_last_odo(v_name):
+    res = supabase.table("logs").select("end_odo").eq("vehicle_name", v_name).order("created_at", desc=True).limit(1).execute()
+    return res.data[0]['end_odo'] if res.data else 0.0
+
+# --- START YOUR DASHBOARD CODE HERE ---
+st.title("🦅 MISSION DASHBOARD")
+# (The rest of your previous UI code for logging miles goes here, 
+#  but you'll swap 'conn.execute' for 'supabase.table().insert()')
+# --- LOG NEW MISSION ---
+# This creates a clickable box to enter your travel
+with st.expander("➕ LOG NEW TRAVEL MISSION", expanded=True):
+    with st.form("log_form", clear_on_submit=True):
+        col1, col2, col3 = st.columns(3)
+        
+        # Capture the travel details
+        date = col1.date_input("Date of Travel", datetime.now())
+        dest = col2.text_input("Destination (e.g. Armory/Fort McCoy)")
+        purpose = col3.selectbox("Purpose", ["IDT Drill", "Battle Assembly", "Annual Training", "Other"])
+        
+        miles = st.number_input("Total Miles", min_value=0, step=1)
+        
+        # This button sends the data to your Supabase "logs" table
+        if st.form_submit_button("SAVE TO TACTICAL LOG"):
+            new_log = {
+                "user_id": user_id, 
+                "date": str(date),
+                "destination": dest,
+                "purpose": purpose,
+                "miles": miles
+            }
+            try:
+                # This must match your table name in Supabase
+                supabase.table("logs").insert(new_log).execute()
+                st.success("✅ Mission Logged Successfully!")
+                st.rerun()
+            except Exception as e:
+                st.error(f"Error saving log: {e}")
+
+# --- VIEW RECENT LOGS ---
+st.subheader("📋 Recent Tactical Logs")
+try:
+    # This fetches ONLY the logs belonging to the person logged in
+    res = supabase.table("logs").select("*").eq("user_id", user_id).order("date", desc=True).execute()
+    
+    if res.data:
+        df = pd.DataFrame(res.data)
+        # Display the data in a clean table
+        st.dataframe(df[["date", "destination", "purpose", "miles"]], use_container_width=True)
+    else:
+        st.info("No logs found. Start by entering a mission above.")
+except Exception as e:
+    st.error(f"Could not load logs: {e}")

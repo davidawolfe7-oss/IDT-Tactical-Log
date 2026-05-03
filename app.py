@@ -19,46 +19,67 @@ if 'user' not in st.session_state:
 
 # --- 4. MAIN APPLICATION ---
 def main():
-    # --- UI: NIGHT OPS HIGH-CONTRAST THEME ---
+    # --- UI: FORCED NIGHT OPS THEME (V2) ---
     st.markdown("""
         <style>
-        .stApp {
+        /* Force background on the main app container and all parent wrappers */
+        .stApp, .main, .block-container {
             background: linear-gradient(rgba(0, 0, 0, 0.85), rgba(0, 0, 0, 0.85)), 
-                        url('https://images.unsplash.com/photo-1501339847302-ac426a4a7cbb?auto=format&fit=crop&q=80&w=2000');
-            background-size: cover;
-            background-attachment: fixed;
-            color: #FFFFFF;
+                        url('https://images.unsplash.com/photo-1501339847302-ac426a4a7cbb?auto=format&fit=crop&q=80&w=2000') !important;
+            background-size: cover !important;
+            background-attachment: fixed !important;
+            background-position: center !important;
+            color: #FFFFFF !important;
         }
-        /* Metric Cards - High Contrast */
-        div[data-testid="stMetricValue"] { color: #FFFFFF !important; font-weight: 800; }
-        div[data-testid="stMetricLabel"] { color: #CCCCCC !important; }
-        [data-testid="stMetric"] { 
-            background-color: rgba(255, 255, 255, 0.05); 
-            padding: 15px; 
-            border-radius: 8px; 
-            border-left: 5px solid #B22234; 
+
+        /* Sidebar Styling - Solid Dark */
+        [data-testid="stSidebar"] {
+            background-color: #0E1117 !important;
+            border-right: 1px solid #444;
         }
-        /* Headers and Text Shadow */
-        h1, h2, h3 { color: #FFFFFF !important; text-shadow: 2px 2px #000000; font-weight: 800; }
-        /* Buttons - Tactical Blue/Red */
-        .stButton>button { 
-            background-color: #3C3B6E; 
-            color: white; 
-            border: 2px solid #FFFFFF; 
-            font-weight: bold;
-            width: 100%;
+
+        /* High-Contrast Typography */
+        h1, h2, h3, h4, h5, h6, p, span, label {
+            color: #FFFFFF !important;
+            text-shadow: 2px 2px 4px #000000 !important;
         }
-        .stButton>button:hover { background-color: #B22234; border-color: #FFFFFF; }
-        /* Form Styling */
-        div[data-testid="stForm"] { 
-            background-color: rgba(0,0,0,0.7); 
-            padding: 20px; 
-            border-radius: 10px; 
-            border: 1px solid #444; 
+
+        /* Metric Cards - Old Glory Red Accent */
+        [data-testid="stMetric"] {
+            background-color: rgba(255, 255, 255, 0.1) !important;
+            border: 1px solid rgba(255, 255, 255, 0.2) !important;
+            border-left: 6px solid #B22234 !important; /* Old Glory Red */
+            padding: 20px !important;
+            border-radius: 10px !important;
         }
-        /* Sidebar Styling */
-        section[data-testid="stSidebar"] {
-            background-color: rgba(20, 20, 20, 0.95);
+
+        /* Tactical Buttons - Old Glory Blue */
+        .stButton>button {
+            background-color: #3C3B6E !important; /* Old Glory Blue */
+            color: #FFFFFF !important;
+            border: 1px solid #FFFFFF !important;
+            font-weight: bold !important;
+            text-transform: uppercase !important;
+            letter-spacing: 1px !important;
+            width: 100% !important;
+            border-radius: 5px !important;
+        }
+        .stButton>button:hover {
+            background-color: #B22234 !important;
+            border-color: #FFFFFF !important;
+        }
+
+        /* Inputs & Forms - Dark Transparent */
+        div[data-testid="stForm"] {
+            background-color: rgba(0, 0, 0, 0.6) !important;
+            border: 1px solid #444 !important;
+            border-radius: 12px !important;
+        }
+        
+        input, select, textarea {
+            background-color: #1A1C23 !important;
+            color: #FFFFFF !important;
+            border: 1px solid #444 !important;
         }
         </style>
     """, unsafe_allow_html=True)
@@ -69,9 +90,9 @@ def main():
     # --- 5. AUTHENTICATION GATE ---
     if not st.session_state.user:
         with st.form("login_form"):
-            st.subheader("Secure Access Required")
-            email = st.text_input("Email")
-            pw = st.text_input("Password", type="password")
+            st.subheader("SECURE LOGIN REQUIRED")
+            email = st.text_input("User Email")
+            pw = st.text_input("Access Key", type="password")
             if st.form_submit_button("AUTHENTICATE"):
                 try:
                     db = get_db()
@@ -86,10 +107,10 @@ def main():
     db = get_db()
     uid = st.session_state.user.id
 
-    # SIDEBAR SETUP
+    # SIDEBAR
     st.sidebar.title("⚓ COMMAND CENTER")
     
-    # Vehicle Engine
+    # Vehicle Database
     v_options = ["Standard Unit"]
     v_mpg_map = {"Standard Unit": 20.0}
     try:
@@ -118,21 +139,21 @@ def main():
         with st.form("mission_entry", clear_on_submit=True):
             c1, c2 = st.columns(2)
             with c1:
-                date = st.date_input("Date", datetime.date.today())
+                date = st.date_input("Mission Date", datetime.date.today())
                 cat = st.selectbox("Category", ["IDT/Business", "Medical", "Charity", "Personal"])
-                start = st.number_input("Start Odometer", min_value=0.0)
+                start = st.number_input("Start Odometer")
             with c2:
-                end = st.number_input("End Odometer", min_value=0.0)
+                end = st.number_input("End Odometer")
                 dest = st.text_input("Destination")
             
-            purpose = st.text_input("Purpose")
+            purpose = st.text_input("Mission Purpose")
 
             if st.form_submit_button("LOG MISSION"):
                 # 2026 Mileage Rates
                 rates = {"IDT/Business": 0.725, "Medical": 0.205, "Charity": 0.14, "Personal": 0.00}
                 miles = end - start
                 if miles < 0:
-                    st.error("End odometer cannot be less than start.")
+                    st.error("Negative mileage detected. Re-check odometers.")
                 else:
                     deduct = round(miles * rates[cat], 2)
                     fuel = round((miles / current_mpg) * gas_price, 2)
@@ -143,27 +164,27 @@ def main():
                         "vehicle_name": selected_v, "fuel_gas": fuel,
                         "start_odo": start, "end_odo": end
                     }).execute()
-                    st.success(f"✅ Mission Logged. Deduction: ${deduct} | Est. Fuel Cost: ${fuel}")
+                    st.success(f"Log Confirmed. Deduction: ${deduct} | Est. Fuel Cost: ${fuel}")
 
     # --- 8. SECTOR: IDT TACTICAL ---
     elif nav == "IDT Tactical":
         st.header("✈️ IDT Logistics")
-        st.info("IRS Form 2106 / Schedule 1 Above-the-Line Calculations")
+        st.info("IRS Form 2106 / Schedule 1 Logic: 2026 Tax Year")
         with st.form("idt_form"):
             c1, c2 = st.columns(2)
             with c1:
-                m_airport = st.number_input("POV Miles to/from Airport", value=0.0)
-                lodging = st.number_input("Lodging (Out-of-Pocket)", value=0.0)
+                m_airport = st.number_input("POV Miles (Airport)", value=0.0)
+                lodging = st.number_input("Lodging Spend", value=0.0)
                 tolls = st.number_input("Tolls & Parking", value=0.0)
             with c2:
-                transit = st.number_input("Uber/Taxi/Transit", value=0.0)
-                meals = st.number_input("Total Meals Cost", value=0.0)
-                reimb = st.number_input("Gov Reimbursement Received", value=750.0)
+                transit = st.number_input("Uber/Taxi", value=0.0)
+                meals = st.number_input("Total Meals", value=0.0)
+                reimb = st.number_input("Reimbursement Received", value=750.0)
             
-            incid = st.number_input("Laundry/Incidentals", value=0.0)
+            incid = st.number_input("Incidentals/Laundry", value=0.0)
             
-            if st.form_submit_button("CALCULATE NET IMPACT"):
-                # 2026 Calculation with 50% meal limitation and $750 cap check
+            if st.form_submit_button("CALCULATE NET TAX DEDUCTION"):
+                # IRS Logic: (Transport + 50% Meals) - Reimbursement
                 total_exp = (m_airport * 0.725) + lodging + tolls + transit + incid + (meals * 0.5)
                 net = max(0.0, total_exp - reimb)
                 st.metric("Net Schedule 1 Deduction", f"${net:,.2f}")
@@ -172,11 +193,11 @@ def main():
     elif nav == "The Garage":
         st.header("🚘 Fleet Management")
         with st.form("garage_form", clear_on_submit=True):
-            vn = st.text_input("Vehicle Name (e.g., '2026 SUV')")
-            vm = st.number_input("Average MPG", min_value=1.0, value=20.0)
+            vn = st.text_input("Vehicle Name")
+            vm = st.number_input("MPG Rating", min_value=1.0, value=20.0)
             if st.form_submit_button("REGISTER VEHICLE"):
                 db.table("vehicles").insert({"user_id": uid, "name": vn, "mpg": vm}).execute()
-                st.success(f"{vn} successfully added to the fleet.")
+                st.success(f"{vn} Registered.")
 
     # --- 10. SECTOR: REPORTS ---
     elif nav == "Reports":
@@ -186,11 +207,9 @@ def main():
             if res.data:
                 df = pd.DataFrame(res.data)
                 st.dataframe(df)
-                st.download_button("📥 Download 2026 Tax CSV", df.to_csv(index=False), "MilPro_2026_Export.csv")
-            else:
-                st.warning("No mission logs found for this user.")
+                st.download_button("📥 Export 2026 CSV", df.to_csv(index=False), "MilPro_2026_Report.csv")
         except Exception as e:
-            st.error(f"Report Generation Error: {e}")
+            st.error(f"Data Retrieval Error: {e}")
 
 if __name__ == "__main__":
     main()

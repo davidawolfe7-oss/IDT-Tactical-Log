@@ -3,105 +3,128 @@ from supabase import create_client, Client
 import datetime
 import pandas as pd
 
-# --- SYSTEM CONFIG ---
+# --- 1. SYSTEM ARCHITECTURE & THEME ---
 st.set_page_config(page_title="Mil-Pro Command", layout="wide")
 
-# 2026 IRS TACTICAL RATES
-RATES = {"IDT/Business": 0.725, "Medical": 0.205, "Charity": 0.14}
+# High-Contrast Night Ops CSS with Flag Motif
+st.markdown("""
+    <style>
+    .stApp {
+        background: linear-gradient(rgba(0, 0, 0, 0.85), rgba(0, 0, 0, 0.85)), 
+                    url('https://images.unsplash.com/photo-1501339847302-ac426a4a7cbb?auto=format&fit=crop&q=80&w=2000');
+        background-size: cover;
+        color: #FFFFFF;
+    }
+    .stMetric { background-color: rgba(255, 255, 255, 0.1); padding: 10px; border-radius: 5px; border-left: 5px solid #cc0000; }
+    h1, h2, h3 { color: #FFFFFF !important; text-shadow: 2px 2px #000000; }
+    .stButton>button { background-color: #cc0000; color: white; width: 100%; border: none; font-weight: bold; }
+    </style>
+    """, unsafe_allow_name=True)
 
-# --- DATABASE INITIALIZATION ---
+# --- 2. TACTICAL RATES (2026) ---
+RATES = {"IDT/Business": 0.725, "Medical": 0.205, "Charity": 0.14, "Personal": 0.00}
+
+# --- 3. DATABASE CONNECTION ---
 @st.cache_resource
-def init_connection():
-    try:
-        return create_client(st.secrets["SUPABASE_URL"], st.secrets["SUPABASE_KEY"])
-    except Exception as e:
-        st.error(f"FATAL: Secret Key missing or invalid. {e}")
-        return None
+def init_db():
+    return create_client(st.secrets["SUPABASE_URL"], st.secrets["SUPABASE_KEY"])
 
-db = init_connection()
+db = init_db()
 
-# --- STATE MANAGEMENT ---
+# --- 4. SESSION STATE ---
 if 'user' not in st.session_state: st.session_state.user = None
-if 'active_vehicle' not in st.session_state: st.session_state.active_vehicle = "Standard Unit"
 
-# --- AUTH GATE ---
+# Auth Gate
 if not st.session_state.user:
     st.title("🪖 Mil-Pro Command: Login")
     with st.form("auth"):
         e, p = st.text_input("Email"), st.text_input("Password", type="password")
-        if st.form_submit_button("Authenticate"):
-            res = db.auth.sign_in_with_password({"email": e, "password": p})
-            st.session_state.user = res.user
-            st.rerun()
+        if st.form_submit_button("AUTHENTICATE"):
+            try:
+                res = db.auth.sign_in_with_password({"email": e, "password": p})
+                st.session_state.user = res.user
+                st.rerun()
+            except: st.error("Login Failed.")
     st.stop()
 
 uid = st.session_state.user.id
 
-# --- NAVIGATION ---
-nav = st.sidebar.radio("Navigation", ["Mission Log", "IDT Tactical", "Fleet Garage", "Reports"])
+# --- 5. SIDEBAR FLEET MGMT ---
+st.sidebar.title("🛠️ Fleet & Navigation")
+v_data = db.table("vehicles").select("*").eq("user_id", uid).execute()
+vehicles = {v['name']: v['mpg'] for v in v_data.data} if v_data.data else {"Primary Unit": 20.0}
+active_v = st.sidebar.selectbox("Active Primary Unit", list(vehicles.keys()))
+active_mpg = vehicles.get(active_v, 20.0)
 
-# --- MISSION LOG SECTOR ---
+nav = st.sidebar.radio("Sectors", ["Mission Log", "IDT Tactical", "The Garage", "Reports"])
+
+# --- 6. SECTOR: MISSION LOG (With Fuel Cost Engine) ---
 if nav == "Mission Log":
-    st.header(f"📍 Log Mission: {st.session_state.active_vehicle}")
+    st.header(f"📍 Daily Sortie: {active_v}")
+    gas_price = st.number_input("Current Gas Price ($/Gal)", value=3.50, step=0.10)
     
-    # Logic: Auto-fetch last odometer to prevent gaps
-    last_odo = 0.0
-    try:
-        log_check = db.table("logs").select("end_odo").eq("user_id", uid).order("created_at", desc=True).limit(1).execute()
-        if log_check.data: last_odo = float(log_check.data[0]['end_odo'])
-    except: pass
-
-    with st.form("log_entry"):
+    with st.form("log_form", clear_on_submit=True):
         c1, c2 = st.columns(2)
         with c1:
-            date = st.date_input("Mission Date", datetime.date.today())
-            start = st.number_input("Start Odometer", value=last_odo)
-            cat = st.selectbox("Mission Type", list(RATES.keys()))
+            date = st.date_input("Date", datetime.date.today())
+            cat = st.selectbox("Category", list(RATES.keys()))
+            start = st.number_input("Start Odometer", min_value=0.0)
         with c2:
             end = st.number_input("End Odometer", min_value=start)
-            dest = st.text_input("Destination/Unit")
+            dest = st.text_input("Destination/Purpose")
         
-        if st.form_submit_button("Commit to Database"):
+        if st.form_submit_button("SAVE MISSION"):
             miles = end - start
-            deduction = round(miles * RATES[cat], 2)
+            deduct = round(miles * RATES[cat], 2)
+            # FUEL COST CALC: (Miles / MPG) * Price
+            fuel_cost = round((miles / active_mpg) * gas_price, 2)
+            
             db.table("logs").insert({
-                "user_id": uid, "date": str(date), "miles": miles,
-                "destination": dest, "purpose": cat, "start_odo": start,
-                "end_odo": end, "total_deduction": deduction
+                "user_id": uid, "date": str(date), "miles": miles, "destination": dest,
+                "purpose": cat, "total_deduction": deduct, "vehicle_name": active_v,
+                "fuel_gas": fuel_cost, "start_odo": start, "end_odo": end
             }).execute()
-            st.success(f"Mission Saved. Deducted: ${deduction}")
+            st.success(f"✅ Logged! Deduction: ${deduct} | Est. Fuel Cost: ${fuel_cost}")
+            st.balloons()
 
-# --- IDT TACTICAL SECTOR ---
+# --- 7. SECTOR: IDT TACTICAL (High Detail) ---
 elif nav == "IDT Tactical":
-    st.header("✈️ IDT Unreimbursed Expense Log")
-    st.markdown("> **Rule:** Total Expenses - $750 Gov Reimbursement = Net Deduction")
+    st.header("✈️ Comprehensive IDT Logistics")
+    st.info("Form 2106 Above-the-Line Tracking")
     
-    with st.form("idt_calc"):
-        air_miles = st.number_input("Miles to/from Airport", value=0.0)
-        lodging = st.number_input("Lodging Costs (Out of Pocket)", value=0.0)
-        tolls = st.number_input("Tolls & Parking", value=0.0)
-        transit = st.number_input("Uber/Taxi/Mass Transit", value=0.0)
-        reimb = st.number_input("Gov Travel Reimbursement Received", value=750.0)
+    with st.form("idt_detail"):
+        m1, m2 = st.columns(2)
+        with m1:
+            miles_airport = st.number_input("Miles to/from Home Airport", value=0.0)
+            lodging = st.number_input("Hotel/Lodging (Actual Cost)", value=0.0)
+            tolls = st.number_input("Tolls & Airport Parking", value=0.0)
+        with m2:
+            transit = st.number_input("Uber/Taxi/Mass Transit", value=0.0)
+            meals = st.number_input("Meals (Deductible at 50%)", value=0.0)
+            reimb = st.number_input("Gov Reimbursement Received", value=750.0)
         
-        if st.form_submit_button("Calculate Final Net"):
-            total_raw = lodging + tolls + transit + (air_miles * 0.725)
-            final_net = max(0.0, total_raw - reimb)
-            st.metric("Net Schedule 1 Deduction", f"${final_net:,.2f}")
+        if st.form_submit_button("CALCULATE NET TAX IMPACT"):
+            # Math: (Transport + Lodging + Transit + (Meals * 0.5)) - Reimbursement
+            total_exp = (miles_airport * 0.725) + lodging + tolls + transit + (meals * 0.5)
+            net_impact = max(0.0, total_exp - reimb)
+            st.metric("Net Schedule 1 Deduction", f"${net_impact:,.2f}")
 
-# --- FLEET GARAGE SECTOR ---
-elif nav == "Fleet Garage":
-    st.header("🚘 Fleet Management")
-    with st.form("add_v"):
-        v_name = st.text_input("Vehicle Name")
-        if st.form_submit_button("Add Vehicle"):
-            db.table("vehicles").insert({"user_id": uid, "name": v_name}).execute()
-            st.success(f"{v_name} added.")
+# --- 8. SECTOR: THE GARAGE ---
+elif nav == "The Garage":
+    st.header("🚘 Vehicle Fleet Registration")
+    with st.form("add_v", clear_on_submit=True):
+        vname = st.text_input("Vehicle Name (Unique)")
+        vmpg = st.number_input("Vehicle MPG (Used for Fuel Math)", value=20.0)
+        if st.form_submit_button("Register to Fleet"):
+            db.table("vehicles").insert({"user_id": uid, "name": vname, "mpg": vmpg}).execute()
+            st.success(f"{vname} Added.")
+            st.rerun()
 
-# --- REPORTS SECTOR ---
+# --- 9. SECTOR: REPORTS ---
 elif nav == "Reports":
-    st.header("📊 Export Data")
-    data = db.table("logs").select("*").eq("user_id", uid).execute()
-    if data.data:
-        df = pd.DataFrame(data.data)
-        st.dataframe(df)
-        st.download_button("Download .CSV", df.to_csv(index=False), "Tax_Logs_2026.csv")
+    st.header("📊 Executive Accountant Export")
+    res = db.table("logs").select("*").eq("user_id", uid).execute()
+    if res.data:
+        df = pd.DataFrame(res.data)
+        st.dataframe(df[["date", "vehicle_name", "miles", "purpose", "total_deduction", "fuel_gas"]])
+        st.download_button("📥 Download Tax CSV", df.to_csv(index=False), "MilPro_Tax_2026.csv")

@@ -2,153 +2,131 @@ import streamlit as st
 from supabase import create_client, Client
 import datetime
 import pandas as pd
+import time
 
-# 1. Page Configuration
+# --- ARCHITECT CONFIG ---
 st.set_page_config(page_title="Mil-Pro Command", page_icon="🪖", layout="wide")
+st.markdown("""<style> .main { background-color: #0e1117; color: #e0e0e0; } </style>""", unsafe_allow_name=True)
 
-# 2. Setup Connection
-try:
-    url = st.secrets["SUPABASE_URL"]
-    key = st.secrets["SUPABASE_KEY"]
-    supabase: Client = create_client(url, key)
-except Exception as e:
-    st.error("Check Streamlit Secrets for SUPABASE_URL and SUPABASE_KEY.")
-    st.stop()
+# --- 2026 TACTICAL RATES ---
+RATES = {"IDT/Business": 0.725, "Medical": 0.22, "Charity": 0.14, "Personal": 0.00}
 
-# --- IRS 2026 OFFICIAL RATES ---
-RATES = {
-    "IDT/Business": 0.725,
-    "Medical": 0.205,
-    "Charity": 0.14,
-    "Personal": 0.00
-}
+# --- CONNECTION ---
+url, key = st.secrets["SUPABASE_URL"], st.secrets["SUPABASE_KEY"]
+supabase: Client = create_client(url, key)
 
-# --- AUTHENTICATION ---
-def login_signup():
-    st.title("🪖 Mil-Pro Command")
-    tab1, tab2 = st.tabs(["Login", "Sign Up"])
-    with tab1:
-        email = st.text_input("Email", key="l_email")
-        password = st.text_input("Password", type="password", key="l_pass")
-        if st.button("Login"):
-            try:
-                res = supabase.auth.sign_in_with_password({"email": email, "password": password})
+# --- SESSION STATE INITIALIZATION ---
+if 'user' not in st.session_state: st.session_state.user = None
+if 'active_vehicle' not in st.session_state: st.session_state.active_vehicle = "None"
+if 'gps_active' not in st.session_state: st.session_state.gps_active = False
+
+# --- AUTH MODULE ---
+def auth_gate():
+    if not st.session_state.user:
+        st.title("🪖 Mil-Pro Command: Night Ops")
+        t1, t2 = st.tabs(["Inbound", "Registration"])
+        with t1:
+            e, p = st.text_input("Email"), st.text_input("Password", type="password")
+            if st.button("Login"):
+                res = supabase.auth.sign_in_with_password({"email":e,"password":p})
                 st.session_state.user = res.user
                 st.rerun()
-            except Exception as e:
-                st.error(f"Login Failed: {e}")
-    with tab2:
-        new_email = st.text_input("New Email", key="s_email")
-        new_pass = st.text_input("New Password", type="password", key="s_pass")
-        if st.button("Create Account"):
-            try:
-                supabase.auth.sign_up({"email": new_email, "password": new_pass})
-                st.success("Account created! Check email for confirmation.")
-            except Exception as e:
-                st.error(f"Signup Failed: {e}")
+        st.stop()
 
-if 'user' not in st.session_state:
-    login_signup()
-    st.stop()
-
+auth_gate()
 user_id = st.session_state.user.id
 
-# --- HELPER: GET VEHICLES ---
-def get_user_vehicles():
-    try:
-        res = supabase.table("vehicles").select("name").eq("user_id", user_id).execute()
-        return [v['name'] for v in res.data] if res.data else ["Primary Vehicle"]
-    except:
-        return ["Primary Vehicle"]
-
-# --- NAVIGATION ---
-page = st.sidebar.radio("Command Center", ["Trip Logger", "The Garage", "Tax Dashboard", "Settings"])
-if st.sidebar.button("Logout"):
-    supabase.auth.sign_out()
-    del st.session_state.user
-    st.rerun()
-
-# --- PAGE: TRIP LOGGER ---
-if page == "Trip Logger":
-    st.header("📍 Log Tactical Travel")
-    vehicles = get_user_vehicles()
+# --- SIDEBAR: FLEET COMMAND ---
+st.sidebar.title("🛠️ Fleet Command")
+try:
+    v_query = supabase.table("vehicles").select("*").eq("user_id", user_id).execute()
+    v_list = [v['name'] for v in v_query.data] if v_query.data else []
     
-    with st.form("main_log", clear_on_submit=True):
+    if v_list:
+        st.session_state.active_vehicle = st.sidebar.selectbox("Active Primary Unit", v_list)
+    else:
+        st.sidebar.warning("No vehicles in Garage.")
+except: pass
+
+nav = st.sidebar.radio("Sectors", ["Mission Log", "IDT Tactical", "The Garage", "Executive Reports"])
+
+# --- SECTOR: MISSION LOG ---
+if nav == "Mission Log":
+    st.header(f"📍 Daily Sortie: {st.session_state.active_vehicle}")
+    
+    # GAP DETECTION LOGIC
+    try:
+        last_log = supabase.table("logs").select("end_odo").eq("user_id", user_id).order("created_at", desc=True).limit(1).execute()
+        last_odo = last_log.data[0]['end_odo'] if last_log.data else 0
+    except: last_odo = 0
+
+    with st.form("sortie_form"):
+        c1, c2 = st.columns(2)
+        with c1:
+            date = st.date_input("Date", datetime.date.today())
+            cat = st.selectbox("Category", list(RATES.keys()))
+            cur_start = st.number_input("Start Odometer", value=float(last_odo))
+        with c2:
+            cur_end = st.number_input("End Odometer", min_value=float(cur_start))
+            dest = st.text_input("Destination")
+        
+        if cur_start > last_odo and last_odo != 0:
+            st.warning(f"⚠️ {int(cur_start - last_odo)} mile gap detected. Record as {cat}?")
+
+        if st.form_submit_button("LOG MISSION"):
+            dist = cur_end - cur_start
+            earned = dist * RATES[cat]
+            supabase.table("logs").insert({
+                "user_id": user_id, "date": str(date), "miles": dist,
+                "destination": dest, "purpose": cat, "vehicle_name": st.session_state.active_vehicle,
+                "start_odo": cur_start, "end_odo": cur_end, "total_deduction": earned
+            }).execute()
+            st.success(f"✅ Logged! You earned ${earned:,.2f} in tax deductions.")
+            st.balloons()
+
+# --- SECTOR: IDT TACTICAL ---
+elif nav == "IDT Tactical":
+    st.header("✈️ Unreimbursed Expense Calculator")
+    st.info("Form 2106 Logic: (Expenses - $750 Cap) = Net Deduction")
+    
+    with st.form("idt_form"):
+        mode = st.radio("Travel Mode", ["POV (Personal)", "Commercial Flight", "Rental Fleet"])
+        miles_to_airport = st.number_input("Miles to/from Airport (Home Leg)", min_value=0.0)
+        
         col1, col2 = st.columns(2)
         with col1:
-            date_in = st.date_input("Mission Date", datetime.date.today())
-            category = st.selectbox("Travel Category", list(RATES.keys()))
-            destination = st.text_input("Destination")
-        
+            lodging = st.number_input("Lodging (Unreimbursed)", min_value=0.0)
+            tolls = st.number_input("Tolls & Parking", min_value=0.0)
+            fuel = st.number_input("Fuel/Gas (Rentals only)", min_value=0.0)
         with col2:
-            miles = st.number_input("Round Trip Miles", min_value=0.0, step=0.1)
-            purpose = st.text_input("Purpose (e.g., Drill, VA Appt)")
-            vehicle_used = st.selectbox("Vehicle Used", vehicles)
+            transit = st.number_input("Mass Transit (Uber/Taxi)", min_value=0.0)
+            incidentals = st.number_input("Laundry/Incidental", min_value=0.0)
+            reimb = st.number_input("Government Reimbursement", value=750.0)
 
-        st.divider()
-        st.write("**Odometer (Optional)**")
-        oc1, oc2 = st.columns(2)
-        start_odo = oc1.number_input("Start Odometer", min_value=0)
-        end_odo = oc2.number_input("End Odometer", min_value=0)
+        if st.form_submit_button("CALCULATE NET DEDUCTION"):
+            total_exp = lodging + tolls + transit + fuel + incidentals + (miles_to_airport * 0.725)
+            net = max(0.0, total_exp - reimb)
+            st.metric("Total Above-the-Line Deduction", f"${net:,.2f}")
+            st.success("Data ready for Schedule 1 (Form 1040)")
 
-        if st.form_submit_button("SAVE MISSION LOG"):
+# --- SECTOR: THE GARAGE ---
+elif nav == "The Garage":
+    st.header("🚘 Database Garage")
+    with st.form("garage_form"):
+        vname = st.text_input("Vehicle Name (Unique)")
+        vmpg = st.number_input("Est. MPG", min_value=1.0)
+        if st.form_submit_button("Register Vehicle"):
             try:
-                rate = RATES.get(category, 0.00)
-                deduction = round(miles * rate, 2)
-                reimb = min(750.00, deduction) if category == "IDT/Business" else 0.00
+                supabase.table("vehicles").insert({"user_id":user_id, "name":vname, "mpg":vmpg}).execute()
+                st.success(f"{vname} registered to fleet.")
+            except: st.error("Duplicate Vehicle Detected. Change Name.")
 
-                new_entry = {
-                    "user_id": user_id, "date": str(date_in), "destination": destination,
-                    "purpose": f"[{category}] {purpose}", "miles": miles,
-                    "vehicle_name": vehicle_used, "start_odo": start_odo, "end_odo": end_odo,
-                    "total_deduction": deduction, "reimbursement": reimb
-                }
-                supabase.table("logs").insert(new_entry).execute()
-                st.success(f"✅ Logged! Deduction: ${deduction}")
-                st.balloons()
-            except Exception as e:
-                st.error(f"Save Error: {e}")
-
-# --- PAGE: THE GARAGE ---
-elif page == "The Garage":
-    st.header("🚘 Vehicle Management")
-    
-    with st.form("add_vehicle", clear_on_submit=True):
-        v_name = st.text_input("Vehicle Name (e.g., 2026 Suburban)")
-        v_type = st.selectbox("Type", ["Personal", "Work-Only", "Medical Support"])
-        if st.form_submit_button("Save to Garage"):
-            try:
-                supabase.table("vehicles").insert({"user_id": user_id, "name": v_name, "vehicle_type": v_type}).execute()
-                st.success(f"Added {v_name} to your fleet!")
-            except Exception as e:
-                st.error(f"Error: {e}")
-
-    st.subheader("Your Fleet")
-    try:
-        v_res = supabase.table("vehicles").select("*").eq("user_id", user_id).execute()
-        if v_res.data:
-            st.table(pd.DataFrame(v_res.data)[["name", "vehicle_type"]])
-    except:
-        st.write("No vehicles saved yet.")
-
-# --- PAGE: TAX DASHBOARD ---
-elif page == "Tax Dashboard":
-    st.header("📊 Tax & Reimbursement Overview")
-    try:
-        res = supabase.table("logs").select("*").eq("user_id", user_id).execute()
+# --- SECTOR: EXECUTIVE REPORTS ---
+elif nav == "Executive Reports":
+    st.button("🔴 RETURN TO COMMAND", on_click=lambda: setattr(st.session_state, 'page', 'Mission Log'))
+    st.header("📊 Accountant-Ready Export")
+    res = supabase.table("logs").select("date,purpose,miles,destination,total_deduction").eq("user_id", user_id).execute()
+    if res.data:
         df = pd.DataFrame(res.data)
-        if not df.empty:
-            m1, m2, m3 = st.columns(3)
-            m1.metric("Total Mileage", f"{df['miles'].sum()} mi")
-            m2.metric("Total Deduction", f"${df['total_deduction'].sum():,.2f}")
-            m3.metric("IDT Reimbursement", f"${df['reimbursement'].sum():,.2f}")
-            st.dataframe(df, use_container_width=True)
-            st.download_button("📥 Download Tax Report", df.to_csv(index=False).encode('utf-8'), "tax_report.csv", "text/csv")
-    except Exception as e:
-        st.error(f"Load Error: {e}")
-
-# --- PAGE: SETTINGS ---
-elif page == "Settings":
-    st.header("⚙️ Settings")
-    st.write(f"Account: {st.session_state.user.email}")
-    st.write("### 2026 IRS Rates: Business: 72.5¢ | Medical: 20.5¢ | Charity: 14¢")
+        st.dataframe(df, use_container_width=True)
+        st.download_button("📥 Export .XLSX", df.to_csv().encode('utf-8'), "2026_Tax_Log.csv")

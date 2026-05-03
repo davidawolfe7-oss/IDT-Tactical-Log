@@ -13,18 +13,18 @@ def get_db():
 
 # --- 3. PERSISTENT MEMORY (The Security Badge) ---
 def handle_persistent_login():
-    cookie_manager = stx.CookieManager()
+    # ADDED KEY='init_fix' TO PREVENT DUPLICATE ELEMENT ERROR
+    cookie_manager = stx.CookieManager(key='init_fix')
     saved_user = cookie_manager.get('mil_pro_user_id')
     
-    # If a badge exists and we aren't currently logged in, sync them
     if saved_user and st.session_state.get('user') is None:
         st.session_state.user = saved_user
         return True
     return False
 
 def save_login_permanently(user_id):
-    cookie_manager = stx.CookieManager()
-    # Issues the badge to the phone for 30 days
+    # ADDED KEY='init_fix' TO PREVENT DUPLICATE ELEMENT ERROR
+    cookie_manager = stx.CookieManager(key='init_fix')
     cookie_manager.set('mil_pro_user_id', user_id, expires_at=datetime.datetime.now() + datetime.timedelta(days=30))
 
 # --- 4. SESSION STATE (Short-Term Memory) ---
@@ -94,7 +94,8 @@ def main():
     nav = st.sidebar.radio("Sectors", ["Mission Log", "IDT Tactical", "The Garage", "Reports"])
 
     if st.sidebar.button("LOGOUT"):
-        cookie_manager = stx.CookieManager()
+        # ADDED KEY='init_fix' TO PREVENT DUPLICATE ELEMENT ERROR
+        cookie_manager = stx.CookieManager(key='init_fix')
         cookie_manager.delete('mil_pro_user_id')
         st.session_state.user = None
         st.rerun()
@@ -112,7 +113,6 @@ def main():
                 if miles < 0:
                     st.error("Error: End odometer lower than start.")
                 else:
-                    # 2026 IRS Business Rate: $0.725
                     deduction = round(miles * 0.725, 2)
                     db.table("logs").insert({
                         "user_id": uid, "date": str(date), "miles": miles, 
@@ -127,7 +127,6 @@ def main():
         with st.form("idt_form"):
             meals = st.number_input("Total Meals Cost")
             lodging = st.number_input("Lodging Spend")
-            # Using your corrected $750 cap
             reimb = st.number_input("Reimbursement Received", value=750.0)
             if st.form_submit_button("CALCULATE NET DEDUCTION"):
                 total_eligible = (meals * 0.5) + lodging

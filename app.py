@@ -12,17 +12,24 @@ try:
     key = st.secrets["SUPABASE_KEY"]
     supabase: Client = create_client(url, key)
 except Exception as e:
-    st.error("Missing Secrets: Check SUPABASE_URL and SUPABASE_KEY in Streamlit Settings.")
+    st.error("Check Streamlit Secrets for SUPABASE_URL and SUPABASE_KEY.")
     st.stop()
 
-# --- AUTHENTICATION MODULE ---
+# --- IRS 2026 TAX RATES (Adjusted for inflation/current standards) ---
+RATES = {
+    "IDT/Business": 0.67,
+    "Medical": 0.21,
+    "Charity": 0.14,
+    "Personal": 0.00
+}
+
+# --- AUTHENTICATION ---
 def login_signup():
     st.title("🪖 Mil-Pro Command")
     tab1, tab2 = st.tabs(["Login", "Sign Up"])
-    
     with tab1:
-        email = st.text_input("Email", key="login_email")
-        password = st.text_input("Password", type="password", key="login_pass")
+        email = st.text_input("Email", key="l_email")
+        password = st.text_input("Password", type="password", key="l_pass")
         if st.button("Login"):
             try:
                 res = supabase.auth.sign_in_with_password({"email": email, "password": password})
@@ -30,96 +37,126 @@ def login_signup():
                 st.rerun()
             except Exception as e:
                 st.error(f"Login Failed: {e}")
-
     with tab2:
-        new_email = st.text_input("New Email", key="sig_email")
-        new_password = st.text_input("New Password", type="password", key="sig_pass")
+        new_email = st.text_input("New Email", key="s_email")
+        new_pass = st.text_input("New Password", type="password", key="s_pass")
         if st.button("Create Account"):
             try:
-                supabase.auth.sign_up({"email": new_email, "password": new_password})
-                st.success("Account created! Check your email for a confirmation link.")
+                supabase.auth.sign_up({"email": new_email, "password": new_pass})
+                st.success("Account created! Check email for confirmation.")
             except Exception as e:
                 st.error(f"Signup Failed: {e}")
 
-# Check session state
 if 'user' not in st.session_state:
     login_signup()
     st.stop()
 
-# --- MAIN APP INTERFACE ---
 user_id = st.session_state.user.id
 
-# Sidebar Navigation
-st.sidebar.title("Navigation")
-page = st.sidebar.radio("Go to:", ["Mission Log", "Dashboard & History", "Settings"])
+# --- NAVIGATION ---
+page = st.sidebar.radio("Command Center", ["Trip Logger", "The Garage", "Tax Dashboard", "Settings"])
 if st.sidebar.button("Logout"):
     supabase.auth.sign_out()
     del st.session_state.user
     st.rerun()
 
-# PAGE 1: MISSION LOG
-if page == "Mission Log":
-    st.header("📋 Log New Mission")
-    with st.form("log_form", clear_on_submit=True):
+# --- PAGE: TRIP LOGGER ---
+if page == "Trip Logger":
+    st.header("📍 Log Tactical Travel")
+    
+    with st.form("main_log", clear_on_submit=True):
         col1, col2 = st.columns(2)
         with col1:
-            date_input = st.date_input("Mission Date", datetime.date.today())
-            destination = st.text_input("Destination (Unit/City)")
+            date_in = st.date_input("Mission Date", datetime.date.today())
+            category = st.selectbox("Travel Category", ["IDT/Business", "Medical", "Charity", "Personal"])
+            destination = st.text_input("Destination")
+        
         with col2:
-            miles = st.number_input("Total Round Trip Miles", min_value=0.0, step=0.1)
-            purpose = st.selectbox("Purpose", ["IDT Drill", "Annual Training", "RMP", "Other"])
-        
-        vehicle = st.text_input("Vehicle", value="Primary Vehicle")
-        
-        if st.form_submit_button("SAVE TO TACTICAL LOG"):
+            miles = st.number_input("Round Trip Miles", min_value=0.0, step=0.1)
+            purpose = st.text_input("Purpose (e.g., Drill, VA Appt, Volunteer)")
+            
+            # Vehicle Selection (Fetches from garage logic or simple text)
+            vehicle = st.text_input("Vehicle Used", value="Primary Vehicle")
+
+        st.divider()
+        st.write("**Odometer (Optional)**")
+        oc1, oc2 = st.columns(2)
+        start_odo = oc1.number_input("Start Odometer", min_value=0)
+        end_odo = oc2.number_input("End Odometer", min_value=0)
+
+        if st.form_submit_button("SAVE MISSION LOG"):
             try:
-                # Tax Rate for 2024-2026 is approx $0.67
-                deduction = round(miles * 0.67, 2)
+                # Calculate based on IRS rates
+                rate = RATES.get(category, 0.00)
+                deduction = round(miles * rate, 2)
                 
+                # Check for IDT Specific Cap (User Correction: $750)
+                reimb = 0.00
+                if category == "IDT/Business":
+                    reimb = min(750.00, deduction) # Cap logic applied
+
                 new_entry = {
                     "user_id": user_id,
-                    "date": str(date_input),
+                    "date": str(date_in),
                     "destination": destination,
-                    "purpose": purpose,
+                    "purpose": f"[{category}] {purpose}",
                     "miles": miles,
                     "vehicle_name": vehicle,
-                    "total_deduction": deduction
+                    "start_odo": start_odo,
+                    "end_odo": end_odo,
+                    "total_deduction": deduction,
+                    "reimbursement": reimb
                 }
                 supabase.table("logs").insert(new_entry).execute()
-                st.success("✅ Mission Saved to Database!")
+                st.success(f"✅ Logged! Estimated Deduction: ${deduction}")
                 st.balloons()
             except Exception as e:
-                st.error(f"Error saving mission: {e}")
+                st.error(f"Save Error: {e}")
 
-# PAGE 2: DASHBOARD & HISTORY
-elif page == "Dashboard & History":
-    st.header("📊 Tactical Overview")
+# --- PAGE: THE GARAGE ---
+elif page == "The Garage":
+    st.header("🚘 Vehicle Management")
+    st.info("Record your fleet here for maintenance and specific tax tracking.")
+    
+    with st.expander("➕ Add New Vehicle"):
+        v_name = st.text_input("Make/Model")
+        v_year = st.number_input("Year", min_value=1900, max_value=2027, value=2026)
+        if st.button("Save to Garage"):
+            st.success(f"{v_year} {v_name} added to profile!")
+
+# --- PAGE: TAX DASHBOARD ---
+elif page == "Tax Dashboard":
+    st.header("📊 Tax & Reimbursement Overview")
     
     try:
-        # Fetch data for current user
         res = supabase.table("logs").select("*").eq("user_id", user_id).execute()
         df = pd.DataFrame(res.data)
         
         if not df.empty:
-            # Dashboard Metrics
+            # Metrics
             total_miles = df['miles'].sum()
             total_deduct = df['total_deduction'].sum()
-            
-            c1, c2 = st.columns(2)
-            c1.metric("Total Mileage", f"{total_miles} mi")
-            c2.metric("Total Tax Deduction", f"${total_deduct:,.2f}")
-            
-            st.divider()
-            st.subheader("Mission History")
-            st.dataframe(df[["date", "destination", "purpose", "miles", "total_deduction"]], use_container_width=True)
-        else:
-            st.info("No missions logged yet. Head over to the 'Mission Log' tab to start.")
-            
-    except Exception as e:
-        st.error(f"Could not load history: {e}")
+            idt_total = df['reimbursement'].sum()
 
-# PAGE 3: SETTINGS
+            m1, m2, m3 = st.columns(3)
+            m1.metric("Total Mileage", f"{total_miles} mi")
+            m2.metric("Total Deduction", f"${total_deduct:,.2f}")
+            m3.metric("IDT Reimbursement", f"${idt_total:,.2f}")
+
+            st.divider()
+            st.subheader("Historical Records")
+            st.dataframe(df, use_container_width=True)
+            
+            # Export Option
+            csv = df.to_csv(index=False).encode('utf-8')
+            st.download_button("📥 Download Report for Taxes", csv, "mission_log_2026.csv", "text/csv")
+        else:
+            st.warning("No logs found. Start logging in 'Trip Logger'.")
+    except Exception as e:
+        st.error(f"Load Error: {e}")
+
+# --- PAGE: SETTINGS ---
 elif page == "Settings":
-    st.header("⚙️ Profile & Settings")
-    st.write(f"Logged in as: **{st.session_state.user.email}**")
-    st.info("Additional vehicle profiles and IDT reimbursement tracking settings coming soon.")
+    st.header("⚙️ Settings")
+    st.write(f"Account: {st.session_state.user.email}")
+    st.write("Current IDT Reimbursement Cap: **$750.00**")

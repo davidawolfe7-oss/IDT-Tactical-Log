@@ -17,9 +17,9 @@ except Exception as e:
 
 # --- IRS 2026 OFFICIAL RATES ---
 RATES = {
-    "IDT/Business": 0.725,  # Up from 67 cents
-    "Medical": 0.205,       # Adjusted for 2026
-    "Charity": 0.14,        # Statutory (No change)
+    "IDT/Business": 0.725,
+    "Medical": 0.205,
+    "Charity": 0.14,
     "Personal": 0.00
 }
 
@@ -53,6 +53,14 @@ if 'user' not in st.session_state:
 
 user_id = st.session_state.user.id
 
+# --- HELPER: GET VEHICLES ---
+def get_user_vehicles():
+    try:
+        res = supabase.table("vehicles").select("name").eq("user_id", user_id).execute()
+        return [v['name'] for v in res.data] if res.data else ["Primary Vehicle"]
+    except:
+        return ["Primary Vehicle"]
+
 # --- NAVIGATION ---
 page = st.sidebar.radio("Command Center", ["Trip Logger", "The Garage", "Tax Dashboard", "Settings"])
 if st.sidebar.button("Logout"):
@@ -63,6 +71,7 @@ if st.sidebar.button("Logout"):
 # --- PAGE: TRIP LOGGER ---
 if page == "Trip Logger":
     st.header("📍 Log Tactical Travel")
+    vehicles = get_user_vehicles()
     
     with st.form("main_log", clear_on_submit=True):
         col1, col2 = st.columns(2)
@@ -73,8 +82,8 @@ if page == "Trip Logger":
         
         with col2:
             miles = st.number_input("Round Trip Miles", min_value=0.0, step=0.1)
-            purpose = st.text_input("Purpose (e.g., Drill, VA Appt, Volunteer)")
-            vehicle = st.text_input("Vehicle Used", value="Primary Vehicle")
+            purpose = st.text_input("Purpose (e.g., Drill, VA Appt)")
+            vehicle_used = st.selectbox("Vehicle Used", vehicles)
 
         st.divider()
         st.write("**Odometer (Optional)**")
@@ -86,26 +95,16 @@ if page == "Trip Logger":
             try:
                 rate = RATES.get(category, 0.00)
                 deduction = round(miles * rate, 2)
-                
-                # IDT Specific Cap ($750)
-                reimb = 0.00
-                if category == "IDT/Business":
-                    reimb = min(750.00, deduction)
+                reimb = min(750.00, deduction) if category == "IDT/Business" else 0.00
 
                 new_entry = {
-                    "user_id": user_id,
-                    "date": str(date_in),
-                    "destination": destination,
-                    "purpose": f"[{category}] {purpose}",
-                    "miles": miles,
-                    "vehicle_name": vehicle,
-                    "start_odo": start_odo,
-                    "end_odo": end_odo,
-                    "total_deduction": deduction,
-                    "reimbursement": reimb
+                    "user_id": user_id, "date": str(date_in), "destination": destination,
+                    "purpose": f"[{category}] {purpose}", "miles": miles,
+                    "vehicle_name": vehicle_used, "start_odo": start_odo, "end_odo": end_odo,
+                    "total_deduction": deduction, "reimbursement": reimb
                 }
                 supabase.table("logs").insert(new_entry).execute()
-                st.success(f"✅ Logged! Estimated Deduction: ${deduction}")
+                st.success(f"✅ Logged! Deduction: ${deduction}")
                 st.balloons()
             except Exception as e:
                 st.error(f"Save Error: {e}")
@@ -113,40 +112,38 @@ if page == "Trip Logger":
 # --- PAGE: THE GARAGE ---
 elif page == "The Garage":
     st.header("🚘 Vehicle Management")
-    st.info("Manage your fleet here for maintenance and specific tax tracking.")
     
-    with st.form("garage_form", clear_on_submit=True):
-        v_name = st.text_input("Make/Model (e.g. 2026 Suburban)")
+    with st.form("add_vehicle", clear_on_submit=True):
+        v_name = st.text_input("Vehicle Name (e.g., 2026 Suburban)")
         v_type = st.selectbox("Type", ["Personal", "Work-Only", "Medical Support"])
-        if st.form_submit_button("Add to Garage"):
-            st.success(f"Successfully added {v_name} to your fleet profile!")
+        if st.form_submit_button("Save to Garage"):
+            try:
+                supabase.table("vehicles").insert({"user_id": user_id, "name": v_name, "vehicle_type": v_type}).execute()
+                st.success(f"Added {v_name} to your fleet!")
+            except Exception as e:
+                st.error(f"Error: {e}")
+
+    st.subheader("Your Fleet")
+    try:
+        v_res = supabase.table("vehicles").select("*").eq("user_id", user_id).execute()
+        if v_res.data:
+            st.table(pd.DataFrame(v_res.data)[["name", "vehicle_type"]])
+    except:
+        st.write("No vehicles saved yet.")
 
 # --- PAGE: TAX DASHBOARD ---
 elif page == "Tax Dashboard":
     st.header("📊 Tax & Reimbursement Overview")
-    
     try:
         res = supabase.table("logs").select("*").eq("user_id", user_id).execute()
         df = pd.DataFrame(res.data)
-        
         if not df.empty:
-            total_miles = df['miles'].sum()
-            total_deduct = df['total_deduction'].sum()
-            idt_total = df['reimbursement'].sum()
-
             m1, m2, m3 = st.columns(3)
-            m1.metric("Total Mileage", f"{total_miles} mi")
-            m2.metric("Total Deduction", f"${total_deduct:,.2f}")
-            m3.metric("IDT Reimbursement", f"${idt_total:,.2f}")
-
-            st.divider()
-            st.subheader("Historical Records")
+            m1.metric("Total Mileage", f"{df['miles'].sum()} mi")
+            m2.metric("Total Deduction", f"${df['total_deduction'].sum():,.2f}")
+            m3.metric("IDT Reimbursement", f"${df['reimbursement'].sum():,.2f}")
             st.dataframe(df, use_container_width=True)
-            
-            csv = df.to_csv(index=False).encode('utf-8')
-            st.download_button("📥 Download Report for Taxes", csv, "mission_log_2026.csv", "text/csv")
-        else:
-            st.info("No logs found. Start logging in 'Trip Logger'.")
+            st.download_button("📥 Download Tax Report", df.to_csv(index=False).encode('utf-8'), "tax_report.csv", "text/csv")
     except Exception as e:
         st.error(f"Load Error: {e}")
 
@@ -154,8 +151,4 @@ elif page == "Tax Dashboard":
 elif page == "Settings":
     st.header("⚙️ Settings")
     st.write(f"Account: {st.session_state.user.email}")
-    st.divider()
-    st.write("### 2026 IRS Rates applied:")
-    st.write(f"- **Business/IDT:** {RATES['IDT/Business'] * 100}¢ per mile")
-    st.write(f"- **Medical:** {RATES['Medical'] * 100}¢ per mile")
-    st.write(f"- **Charity:** {RATES['Charity'] * 100}¢ per mile")
+    st.write("### 2026 IRS Rates: Business: 72.5¢ | Medical: 20.5¢ | Charity: 14¢")

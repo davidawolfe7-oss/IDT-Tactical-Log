@@ -2,3 +2,4 @@ supabase
 streamlit
 pandas
 openpyxl
+extra-streamlit-components

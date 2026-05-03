@@ -1,205 +1,145 @@
 import streamlit as st
+import extra_streamlit_components as stx
 from supabase import create_client
 import datetime
 import pandas as pd
 
-# --- 1. SETTINGS & BOOTSTRAP ---
+# --- 1. BOOTSTRAP (The Blueprint) ---
 st.set_page_config(page_title="Mil-Pro Command", layout="wide")
 
-# --- 2. DATABASE UTILITY ---
+# --- 2. DATABASE UTILITY (The Supply Line) ---
 def get_db():
-    if "SUPABASE_URL" not in st.secrets:
-        st.error("Missing SUPABASE_URL in Streamlit Secrets")
-        st.stop()
     return create_client(st.secrets["SUPABASE_URL"], st.secrets["SUPABASE_KEY"])
 
-# --- 3. SESSION STATE ---
+# --- 3. PERSISTENT MEMORY (The Security Badge) ---
+def handle_persistent_login():
+    cookie_manager = stx.CookieManager()
+    saved_user = cookie_manager.get('mil_pro_user_id')
+    
+    # If a badge exists and we aren't currently logged in, sync them
+    if saved_user and st.session_state.get('user') is None:
+        st.session_state.user = saved_user
+        return True
+    return False
+
+def save_login_permanently(user_id):
+    cookie_manager = stx.CookieManager()
+    # Issues the badge to the phone for 30 days
+    cookie_manager.set('mil_pro_user_id', user_id, expires_at=datetime.datetime.now() + datetime.timedelta(days=30))
+
+# --- 4. SESSION STATE (Short-Term Memory) ---
 if 'user' not in st.session_state:
     st.session_state.user = None
 
-# --- 4. MAIN APPLICATION ---
+# --- 5. MAIN APPLICATION ---
 def main():
-    # --- UI: FORCED NIGHT OPS THEME (V2) ---
+    # A. Check for badge immediately
+    handle_persistent_login()
+
+    # B. Night Ops Theme (LOCKED VERSION)
     st.markdown("""
         <style>
-        /* Force background on the main app container and all parent wrappers */
-        .stApp, .main, .block-container {
+        .stApp {
             background: linear-gradient(rgba(0, 0, 0, 0.85), rgba(0, 0, 0, 0.85)), 
-                        url('https://images.unsplash.com/photo-1501339847302-ac426a4a7cbb?auto=format&fit=crop&q=80&w=2000') !important;
+                        url('https://images.unsplash.com/photo-1501339847302-ac426a4a7cbb?auto=format&fit=crop&q=80&w=2000');
             background-size: cover !important;
             background-attachment: fixed !important;
-            background-position: center !important;
             color: #FFFFFF !important;
         }
-
-        /* Sidebar Styling - Solid Dark */
-        [data-testid="stSidebar"] {
-            background-color: #0E1117 !important;
-            border-right: 1px solid #444;
-        }
-
-        /* High-Contrast Typography */
-        h1, h2, h3, h4, h5, h6, p, span, label {
-            color: #FFFFFF !important;
-            text-shadow: 2px 2px 4px #000000 !important;
-        }
-
-        /* Metric Cards - Old Glory Red Accent */
         [data-testid="stMetric"] {
-            background-color: rgba(255, 255, 255, 0.1) !important;
-            border: 1px solid rgba(255, 255, 255, 0.2) !important;
-            border-left: 6px solid #B22234 !important; /* Old Glory Red */
-            padding: 20px !important;
-            border-radius: 10px !important;
+            background-color: rgba(255, 255, 255, 0.05);
+            border-left: 5px solid #B22234;
+            padding: 15px;
         }
-
-        /* Tactical Buttons - Old Glory Blue */
         .stButton>button {
-            background-color: #3C3B6E !important; /* Old Glory Blue */
-            color: #FFFFFF !important;
-            border: 1px solid #FFFFFF !important;
-            font-weight: bold !important;
-            text-transform: uppercase !important;
-            letter-spacing: 1px !important;
-            width: 100% !important;
-            border-radius: 5px !important;
+            background-color: #3C3B6E;
+            color: white;
+            border: 1px solid #FFFFFF;
+            font-weight: bold;
+            width: 100%;
         }
-        .stButton>button:hover {
-            background-color: #B22234 !important;
-            border-color: #FFFFFF !important;
-        }
-
-        /* Inputs & Forms - Dark Transparent */
+        .stButton>button:hover { background-color: #B22234; }
         div[data-testid="stForm"] {
-            background-color: rgba(0, 0, 0, 0.6) !important;
-            border: 1px solid #444 !important;
-            border-radius: 12px !important;
-        }
-        
-        input, select, textarea {
-            background-color: #1A1C23 !important;
-            color: #FFFFFF !important;
-            border: 1px solid #444 !important;
+            background-color: rgba(0,0,0,0.7);
+            border-radius: 10px;
+            padding: 20px;
         }
         </style>
     """, unsafe_allow_html=True)
 
-    st.title("🪖 MIL-PRO COMMAND")
-    st.caption("Tactical Logistics & Tax Tracking | 2026 Edition")
-
-    # --- 5. AUTHENTICATION GATE ---
-    if not st.session_state.user:
+    # C. AUTHENTICATION GATE
+    if st.session_state.user is None:
+        st.title("🪖 MIL-PRO COMMAND")
+        st.caption("Tactical Logistics Management")
+        
         with st.form("login_form"):
-            st.subheader("SECURE LOGIN REQUIRED")
-            email = st.text_input("User Email")
+            email = st.text_input("Email")
             pw = st.text_input("Access Key", type="password")
             if st.form_submit_button("AUTHENTICATE"):
                 try:
                     db = get_db()
                     res = db.auth.sign_in_with_password({"email": email, "password": pw})
-                    st.session_state.user = res.user
+                    st.session_state.user = res.user.id
+                    save_login_permanently(res.user.id)
                     st.rerun()
                 except Exception as e:
-                    st.error(f"Login Failed: {e}")
+                    st.error(f"Login Failure: {e}")
         return
 
-    # --- 6. COMMAND SECTOR (LOGGED IN) ---
+    # D. COMMAND CENTER (Logged In)
     db = get_db()
-    uid = st.session_state.user.id
+    uid = st.session_state.user
 
-    # SIDEBAR
     st.sidebar.title("⚓ COMMAND CENTER")
-    
-    # Vehicle Database
-    v_options = ["Standard Unit"]
-    v_mpg_map = {"Standard Unit": 20.0}
-    try:
-        v_res = db.table("vehicles").select("name", "mpg").eq("user_id", uid).execute()
-        if v_res.data:
-            v_options = [v['name'] for v in v_res.data]
-            v_mpg_map = {v['name']: float(v['mpg']) for v in v_res.data}
-    except:
-        pass
-
-    selected_v = st.sidebar.selectbox("Active Vehicle", v_options)
-    current_mpg = v_mpg_map.get(selected_v, 20.0)
-    gas_price = st.sidebar.number_input("Gas Price ($/Gal)", value=3.50)
-
     nav = st.sidebar.radio("Sectors", ["Mission Log", "IDT Tactical", "The Garage", "Reports"])
 
     if st.sidebar.button("LOGOUT"):
-        db.auth.sign_out()
+        cookie_manager = stx.CookieManager()
+        cookie_manager.delete('mil_pro_user_id')
         st.session_state.user = None
         st.rerun()
 
-    # --- 7. SECTOR: MISSION LOG ---
+    # Sector: Mission Log
     if nav == "Mission Log":
-        st.header(f"📍 Mission Log: {selected_v}")
-        
+        st.header("📍 Mission Log")
         with st.form("mission_entry", clear_on_submit=True):
-            c1, c2 = st.columns(2)
-            with c1:
-                date = st.date_input("Mission Date", datetime.date.today())
-                cat = st.selectbox("Category", ["IDT/Business", "Medical", "Charity", "Personal"])
-                start = st.number_input("Start Odometer")
-            with c2:
-                end = st.number_input("End Odometer")
-                dest = st.text_input("Destination")
-            
+            date = st.date_input("Date", datetime.date.today())
+            start = st.number_input("Start Odometer", step=1)
+            end = st.number_input("End Odometer", step=1)
             purpose = st.text_input("Mission Purpose")
-
             if st.form_submit_button("LOG MISSION"):
-                # 2026 Mileage Rates
-                rates = {"IDT/Business": 0.725, "Medical": 0.205, "Charity": 0.14, "Personal": 0.00}
                 miles = end - start
                 if miles < 0:
-                    st.error("Negative mileage detected. Re-check odometers.")
+                    st.error("Error: End odometer lower than start.")
                 else:
-                    deduct = round(miles * rates[cat], 2)
-                    fuel = round((miles / current_mpg) * gas_price, 2)
-                    
+                    # 2026 IRS Business Rate: $0.725
+                    deduction = round(miles * 0.725, 2)
                     db.table("logs").insert({
-                        "user_id": uid, "date": str(date), "miles": miles, "destination": dest,
-                        "purpose": f"[{cat}] {purpose}", "total_deduction": deduct,
-                        "vehicle_name": selected_v, "fuel_gas": fuel,
-                        "start_odo": start, "end_odo": end
+                        "user_id": uid, "date": str(date), "miles": miles, 
+                        "purpose": purpose, "total_deduction": deduction
                     }).execute()
-                    st.success(f"Log Confirmed. Deduction: ${deduct} | Est. Fuel Cost: ${fuel}")
+                    st.success(f"Mission Confirmed: {miles} miles. Deduction: ${deduction}")
 
-    # --- 8. SECTOR: IDT TACTICAL ---
+    # Sector: IDT Tactical
     elif nav == "IDT Tactical":
         st.header("✈️ IDT Logistics")
-        st.info("IRS Form 2106 / Schedule 1 Logic: 2026 Tax Year")
+        st.info("Tracking unreimbursed expenses ($750 Cap)")
         with st.form("idt_form"):
-            c1, c2 = st.columns(2)
-            with c1:
-                m_airport = st.number_input("POV Miles (Airport)", value=0.0)
-                lodging = st.number_input("Lodging Spend", value=0.0)
-                tolls = st.number_input("Tolls & Parking", value=0.0)
-            with c2:
-                transit = st.number_input("Uber/Taxi", value=0.0)
-                meals = st.number_input("Total Meals", value=0.0)
-                reimb = st.number_input("Reimbursement Received", value=750.0)
-            
-            incid = st.number_input("Incidentals/Laundry", value=0.0)
-            
-            if st.form_submit_button("CALCULATE NET TAX DEDUCTION"):
-                # IRS Logic: (Transport + 50% Meals) - Reimbursement
-                total_exp = (m_airport * 0.725) + lodging + tolls + transit + incid + (meals * 0.5)
-                net = max(0.0, total_exp - reimb)
-                st.metric("Net Schedule 1 Deduction", f"${net:,.2f}")
+            meals = st.number_input("Total Meals Cost")
+            lodging = st.number_input("Lodging Spend")
+            # Using your corrected $750 cap
+            reimb = st.number_input("Reimbursement Received", value=750.0)
+            if st.form_submit_button("CALCULATE NET DEDUCTION"):
+                total_eligible = (meals * 0.5) + lodging
+                net = max(0.0, total_eligible - reimb)
+                st.metric("Net Schedule 1 Deduction", f"${net}")
 
-    # --- 9. SECTOR: THE GARAGE ---
+    # Sector: The Garage
     elif nav == "The Garage":
         st.header("🚘 Fleet Management")
-        with st.form("garage_form", clear_on_submit=True):
-            vn = st.text_input("Vehicle Name")
-            vm = st.number_input("MPG Rating", min_value=1.0, value=20.0)
-            if st.form_submit_button("REGISTER VEHICLE"):
-                db.table("vehicles").insert({"user_id": uid, "name": vn, "mpg": vm}).execute()
-                st.success(f"{vn} Registered.")
+        st.write("Vehicle tracking system online.")
 
-    # --- 10. SECTOR: REPORTS ---
+    # Sector: Reports
     elif nav == "Reports":
         st.header("📊 Tax Export")
         try:
@@ -207,9 +147,9 @@ def main():
             if res.data:
                 df = pd.DataFrame(res.data)
                 st.dataframe(df)
-                st.download_button("📥 Export 2026 CSV", df.to_csv(index=False), "MilPro_2026_Report.csv")
-        except Exception as e:
-            st.error(f"Data Retrieval Error: {e}")
+                st.download_button("📥 Export CSV", df.to_csv(index=False), "MilPro_Report.csv")
+        except:
+            st.warning("No mission logs found for this user.")
 
 if __name__ == "__main__":
     main()

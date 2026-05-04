@@ -11,15 +11,17 @@ st.set_page_config(page_title="Mil-Pro Command", layout="wide")
 def get_db():
     return create_client(st.secrets["SUPABASE_URL"], st.secrets["SUPABASE_KEY"])
 
-# --- 3. PERSISTENT MEMORY (The Security Badge) ---
-# Added show_spinner=False to stop the CachedWidgetWarning
-@st.cache_resource(show_spinner=False)
-def get_cookie_manager():
-    return stx.CookieManager(key="mil_pro_persistent_manager")
+# --- 3. PERSISTENT MEMORY (The Stabilized Fix) ---
+def get_manager():
+    # This creates the manager only if it doesn't exist yet
+    if "cookie_manager" not in st.session_state:
+        st.session_state.cookie_manager = stx.CookieManager(key="mil_pro_stable_mgr")
+    return st.session_state.cookie_manager
 
 def handle_persistent_login():
-    cookie_manager = get_cookie_manager()
-    saved_user = cookie_manager.get('mil_pro_user_id')
+    manager = get_manager()
+    # On the first run, the manager might need a second to initialize
+    saved_user = manager.get('mil_pro_user_id')
     
     if saved_user and st.session_state.get('user') is None:
         st.session_state.user = saved_user
@@ -27,8 +29,8 @@ def handle_persistent_login():
     return False
 
 def save_login_permanently(user_id):
-    cookie_manager = get_cookie_manager()
-    cookie_manager.set('mil_pro_user_id', user_id, expires_at=datetime.datetime.now() + datetime.timedelta(days=30))
+    manager = get_manager()
+    manager.set('mil_pro_user_id', user_id, expires_at=datetime.datetime.now() + datetime.timedelta(days=30))
 
 # --- 4. SESSION STATE ---
 if 'user' not in st.session_state:
@@ -97,8 +99,8 @@ def main():
     nav = st.sidebar.radio("Sectors", ["Mission Log", "IDT Tactical", "The Garage", "Reports"])
 
     if st.sidebar.button("LOGOUT"):
-        cookie_manager = get_cookie_manager()
-        cookie_manager.delete('mil_pro_user_id')
+        manager = get_manager()
+        manager.delete('mil_pro_user_id')
         st.session_state.user = None
         st.rerun()
 

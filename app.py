@@ -11,9 +11,9 @@ st.set_page_config(page_title="Mil-Pro Command", layout="wide")
 def get_db():
     return create_client(st.secrets["SUPABASE_URL"], st.secrets["SUPABASE_KEY"])
 
-# --- 3. PERSISTENT MEMORY (The Security Badge Fix) ---
-# We use @st.cache_resource so the Cookie Manager is only created ONCE per session.
-@st.cache_resource
+# --- 3. PERSISTENT MEMORY (The Security Badge) ---
+# Added show_spinner=False to stop the CachedWidgetWarning
+@st.cache_resource(show_spinner=False)
 def get_cookie_manager():
     return stx.CookieManager(key="mil_pro_persistent_manager")
 

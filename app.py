@@ -4,17 +4,21 @@ from supabase import create_client
 import datetime
 import pandas as pd
 
-# --- 1. BOOTSTRAP (The Blueprint) ---
+# --- 1. BOOTSTRAP ---
 st.set_page_config(page_title="Mil-Pro Command", layout="wide")
 
-# --- 2. DATABASE UTILITY (The Supply Line) ---
+# --- 2. DATABASE UTILITY ---
 def get_db():
     return create_client(st.secrets["SUPABASE_URL"], st.secrets["SUPABASE_KEY"])
 
-# --- 3. PERSISTENT MEMORY (The Security Badge) ---
+# --- 3. PERSISTENT MEMORY (The Security Badge Fix) ---
+# We use @st.cache_resource so the Cookie Manager is only created ONCE per session.
+@st.cache_resource
+def get_cookie_manager():
+    return stx.CookieManager(key="mil_pro_persistent_manager")
+
 def handle_persistent_login():
-    # ADDED KEY='init_fix' TO PREVENT DUPLICATE ELEMENT ERROR
-    cookie_manager = stx.CookieManager(key='init_fix')
+    cookie_manager = get_cookie_manager()
     saved_user = cookie_manager.get('mil_pro_user_id')
     
     if saved_user and st.session_state.get('user') is None:
@@ -23,11 +27,10 @@ def handle_persistent_login():
     return False
 
 def save_login_permanently(user_id):
-    # ADDED KEY='init_fix' TO PREVENT DUPLICATE ELEMENT ERROR
-    cookie_manager = stx.CookieManager(key='init_fix')
+    cookie_manager = get_cookie_manager()
     cookie_manager.set('mil_pro_user_id', user_id, expires_at=datetime.datetime.now() + datetime.timedelta(days=30))
 
-# --- 4. SESSION STATE (Short-Term Memory) ---
+# --- 4. SESSION STATE ---
 if 'user' not in st.session_state:
     st.session_state.user = None
 
@@ -94,8 +97,7 @@ def main():
     nav = st.sidebar.radio("Sectors", ["Mission Log", "IDT Tactical", "The Garage", "Reports"])
 
     if st.sidebar.button("LOGOUT"):
-        # ADDED KEY='init_fix' TO PREVENT DUPLICATE ELEMENT ERROR
-        cookie_manager = stx.CookieManager(key='init_fix')
+        cookie_manager = get_cookie_manager()
         cookie_manager.delete('mil_pro_user_id')
         st.session_state.user = None
         st.rerun()

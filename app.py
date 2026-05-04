@@ -125,23 +125,41 @@ def main():
                     st.success(f"Mission Confirmed: {miles} miles. Deduction: ${deduction}")
 
     # Sector: IDT Tactical
-    elif nav == "IDT Tactical":
-        st.header("✈️ IDT Logistics")
-        st.info("Tracking unreimbursed expenses ($750 Cap)")
-        with st.form("idt_form"):
-            meals = st.number_input("Total Meals Cost")
-            lodging = st.number_input("Lodging Spend")
-            reimb = st.number_input("Reimbursement Received", value=750.0)
-            if st.form_submit_button("CALCULATE NET DEDUCTION"):
-                total_eligible = (meals * 0.5) + lodging
-                net = max(0.0, total_eligible - reimb)
-                st.metric("Net Schedule 1 Deduction", f"${net}")
-
+    
     # Sector: The Garage
     elif nav == "The Garage":
-        st.header("🚘 Fleet Management")
+        st.header("🚘 Vehicle Management")
         st.write("Vehicle tracking system online.")
+# --- UPGRADED SECTOR: IDT TACTICAL ---
+    elif nav == "IDT Tactical":
+        st.header("✈️ IDT Logistics & Travel")
+        st.info("IRS Rules: Travel must be >100 miles from home for Schedule 1 deductions.")
 
+        with st.form("idt_form_detailed"):
+            col1, col2 = st.columns(2)
+            with col1:
+                dist_check = st.checkbox("Is this travel over 100 miles from home?")
+                lodging = st.number_input("Lodging (Unreimbursed Amount)", min_value=0.0)
+                transport = st.number_input("Flights/Rental/Tolls", min_value=0.0)
+            
+            with col2:
+                meals_total = st.number_input("Total Spent on Meals", min_value=0.0)
+                reimb_received = st.number_input("Reimbursement Received (Cap: $750)", value=0.0)
+
+            if st.form_submit_button("CALCULATE TACTICAL DEDUCTION"):
+                if not dist_check:
+                    st.warning("Note: Travel under 100 miles is generally not deductible on Schedule 1.")
+                
+                # IRS allows 50% for meals
+                deductible_meals = meals_total * 0.5
+                total_out_of_pocket = lodging + transport + deductible_meals
+                
+                # The "Net" is what you didn't get back from the military
+                net_deduction = max(0.0, total_out_of_pocket - reimb_received)
+                
+                st.divider()
+                st.metric("Potential Tax Deduction", f"${net_deduction:,.2f}")
+                st.caption(f"Based on ${deductible_meals} (50% Meals) + ${lodging} (Lodging) + ${transport} (Travel)")
     # Sector: Reports
     elif nav == "Reports":
         st.header("📊 Tax Export")

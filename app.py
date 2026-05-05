@@ -13,16 +13,13 @@ def get_db():
 
 # --- 3. PERSISTENT MEMORY (The Stabilized Fix) ---
 def get_manager():
-    # This creates the manager only if it doesn't exist yet
     if "cookie_manager" not in st.session_state:
         st.session_state.cookie_manager = stx.CookieManager(key="mil_pro_stable_mgr")
     return st.session_state.cookie_manager
 
 def handle_persistent_login():
     manager = get_manager()
-    # On the first run, the manager might need a second to initialize
     saved_user = manager.get('mil_pro_user_id')
-    
     if saved_user and st.session_state.get('user') is None:
         st.session_state.user = saved_user
         return True
@@ -38,10 +35,9 @@ if 'user' not in st.session_state:
 
 # --- 5. MAIN APPLICATION ---
 def main():
-    # A. Check for badge immediately
     handle_persistent_login()
 
-    # B. Night Ops Theme (LOCKED VERSION)
+    # --- NIGHT OPS THEME (LOCKED) ---
     st.markdown("""
         <style>
         .stApp {
@@ -72,11 +68,9 @@ def main():
         </style>
     """, unsafe_allow_html=True)
 
-    # C. AUTHENTICATION GATE
+    # --- AUTHENTICATION GATE ---
     if st.session_state.user is None:
         st.title("🪖 MIL-PRO COMMAND")
-        st.caption("Tactical Logistics Management")
-        
         with st.form("login_form"):
             email = st.text_input("Email")
             pw = st.text_input("Access Key", type="password")
@@ -91,12 +85,13 @@ def main():
                     st.error(f"Login Failure: {e}")
         return
 
-    # D. COMMAND CENTER (Logged In)
+    # --- LOGGED IN: COMMAND CENTER ---
     db = get_db()
     uid = st.session_state.user
 
     st.sidebar.title("⚓ COMMAND CENTER")
-    nav = st.sidebar.radio("Sectors", ["Mission Log", "IDT Tactical", "The Garage", "Reports"])
+    # Simplified Nav: Focus on Logistics and Intelligence (Reports)
+    nav = st.sidebar.radio("Sectors", ["Mission Logistics", "Intelligence (Reports)"])
 
     if st.sidebar.button("LOGOUT"):
         manager = get_manager()
@@ -104,90 +99,90 @@ def main():
         st.session_state.user = None
         st.rerun()
 
-    # Sector: Mission Log
-    if nav == "Mission Log":
-        st.header("📍 Mission Log")
-        with st.form("mission_entry", clear_on_submit=True):
-            date = st.date_input("Date", datetime.date.today())
-            start = st.number_input("Start Odometer", step=1)
-            end = st.number_input("End Odometer", step=1)
-            purpose = st.text_input("Mission Purpose")
-            if st.form_submit_button("LOG MISSION"):
-                miles = end - start
-                if miles < 0:
-                    st.error("Error: End odometer lower than start.")
-                else:
-                    deduction = round(miles * 0.725, 2)
-                    db.table("logs").insert({
-                        "user_id": uid, "date": str(date), "miles": miles, 
-                        "purpose": purpose, "total_deduction": deduction
-                    }).execute()
-                    st.success(f"Mission Confirmed: {miles} miles. Deduction: ${deduction}")
-
-   # --- FULL SPECTRUM MILITARY LOGISTICS SECTOR ---
-    elif nav == "IDT Tactical":
-        st.header("✈️ Comprehensive Military Tax Engine")
+    if nav == "Mission Logistics":
+        st.header("✈️ Comprehensive Military Logistics")
         
-        # Tabs help separate the "Travel" from the "Gear" so you don't get overwhelmed
-        tab1, tab2, tab3 = st.tabs(["Duty Travel (IDT/AT)", "Professional Gear", "Medical & VA"])
+        tab1, tab2, tab3, tab4 = st.tabs([
+            "Duty Travel (IDT/AT/PCS)", 
+            "Professional Gear", 
+            "Medical & VA",
+            "Nontaxable Income"
+        ])
 
         with tab1:
-            st.subheader("Tactical Travel & Mileage Gap")
-            with st.form("travel_detailed"):
+            st.subheader("Duty Travel & Mileage Gap")
+            with st.form("travel_detailed", clear_on_submit=True):
                 col1, col2 = st.columns(2)
                 with col1:
-                    total_miles = st.number_input("Total Round-Trip Miles Driven", min_value=0.0)
-                    reimb_miles = st.number_input("Miles Reimbursed by Unit", min_value=0.0)
-                    flights_rail = st.number_input("Flights / Rail / Rental Cars", min_value=0.0)
+                    date = st.date_input("Travel Date")
+                    total_miles = st.number_input("Total Miles Driven", min_value=0.0)
+                    reimb_miles = st.number_input("Miles Reimbursed by Gov", min_value=0.0)
+                    flights_rail = st.number_input("Flights/Rail/Rental/Airport Fees", min_value=0.0)
                 
                 with col2:
                     lodging = st.number_input("Out-of-Pocket Lodging", min_value=0.0)
-                    meals_days = st.number_input("Days Away (For Per Diem Calculation)", step=1)
-                    reimb_total = st.number_input("Total Reimbursement Received ($750 Cap)", value=0.0)
+                    meals_days = st.number_input("Days Away (Overnight)", step=1)
+                    reimb_total = st.number_input("Total Travel Reimbursement Received", value=0.0)
 
-                if st.form_submit_button("CALCULATE TRAVEL TOTAL"):
-                    # Logic for the 72.5c vs 22.5c gap
-                    mileage_deduction = (total_miles * 0.725) - (reimb_miles * 0.225)
-                    # Standard Per Diem Estimate (Simplified)
+                if st.form_submit_button("LOG TRAVEL DATA"):
+                    # IRS 2026 Rate: 72.5c | Mil Rate: 22.5c
+                    mileage_gap = (total_miles * 0.725) - (reimb_miles * 0.225)
                     meal_deduction = (meals_days * 60.00) * 0.50 
+                    total_deductible = max(0.0, (mileage_gap + flights_rail + lodging + meal_deduction) - reimb_total)
                     
-                    gross_expenses = mileage_deduction + flights_rail + lodging + meal_deduction
-                    net_tax_impact = max(0.0, gross_expenses - reimb_total)
-                    
-                    st.metric("Net Travel Deduction", f"${net_tax_impact:,.2f}")
-                    st.info(f"Includes ${mileage_deduction:,.2f} in mileage gap adjustments.")
+                    db.table("logs").insert({
+                        "user_id": uid, "date": str(date), "category": "Travel",
+                        "miles": total_miles, "deduction": total_deductible
+                    }).execute()
+                    st.success(f"Logged ${total_deductible:,.2f} in Potential Deductions.")
 
         with tab2:
             st.subheader("Uniforms, Gear & Professional Dues")
             with st.form("gear_form"):
-                u_maint = st.number_input("Uniform Dry Cleaning & Repair", min_value=0.0)
-                insignia = st.number_input("Rank, Patches, Medals", min_value=0.0)
-                equipment = st.number_input("Duty Gear (Boots, GPS, Multitools)", min_value=0.0)
-                dues = st.number_input("Professional Dues & Subscriptions", min_value=0.0)
-                
-                if st.form_submit_button("SAVE GEAR LOG"):
-                    total_gear = u_maint + insignia + equipment + dues
-                    st.success(f"Logged ${total_gear} in professional expenses.")
+                u_maint = st.number_input("Uniform Cleaning/Repair", min_value=0.0)
+                insignia = st.number_input("Rank/Patches/Medals", min_value=0.0)
+                equipment = st.number_input("Duty Gear (Boots, GPS, Tools)", min_value=0.0)
+                dues = st.number_input("Professional Dues/Subscriptions", min_value=0.0)
+                if st.form_submit_button("LOG GEAR"):
+                    total = u_maint + insignia + equipment + dues
+                    db.table("logs").insert({
+                        "user_id": uid, "date": str(datetime.date.today()), 
+                        "category": "Gear", "deduction": total
+                    }).execute()
+                    st.success(f"Logged ${total} Professional Expense.")
 
         with tab3:
-            st.subheader("Medical & Charitable Transit")
-            st.caption("Tracking mileage for VA appointments and Volunteer work.")
-            med_miles = st.number_input("Medical/VA Mileage", min_value=0.0)
-            charity_miles = st.number_input("Charitable Volunteer Mileage (14¢ rate)", min_value=0.0)
-            if st.button("Calculate Medical"):
-                st.write(f"Medical Deduction: ${med_miles * 0.22}") 
-                # Standard medical rate
-    # Sector: Reports
-    elif nav == "Reports":
-        st.header("📊 Tax Export")
-        try:
-            res = db.table("logs").select("*").eq("user_id", uid).execute()
-            if res.data:
-                df = pd.DataFrame(res.data)
-                st.dataframe(df)
-                st.download_button("📥 Export CSV", df.to_csv(index=False), "MilPro_Report.csv")
-        except:
-            st.warning("No mission logs found for this user.")
+            st.subheader("VA & Medical Transit")
+            with st.form("med_form"):
+                med_miles = st.number_input("VA/Medical Appointment Miles", min_value=0.0)
+                charity_miles = st.number_input("Charitable/Volunteer Miles (14¢)", min_value=0.0)
+                if st.form_submit_button("LOG MEDICAL MILES"):
+                    med_total = (med_miles * 0.22) + (charity_miles * 0.14)
+                    db.table("logs").insert({
+                        "user_id": uid, "date": str(datetime.date.today()), 
+                        "category": "Medical", "deduction": med_total
+                    }).execute()
+                    st.success(f"Medical Logged: ${med_total:,.2f}")
+
+        with tab4:
+            st.subheader("Nontaxable Pay Tracking")
+            st.caption("Tracking BAH, BAS, and Combat Pay to calculate actual taxable footprint.")
+            with st.form("income_form"):
+                bah_bas = st.number_input("Monthly BAH + BAS", min_value=0.0)
+                combat_pay = st.number_input("Combat Zone Tax-Exempt Pay", min_value=0.0)
+                fsa = st.number_input("Family Separation Allowance", min_value=0.0)
+                if st.form_submit_button("LOG INCOME DATA"):
+                    st.info("This data will be used to reduce AGI in your final report.")
+
+    elif nav == "Intelligence (Reports)":
+        st.header("📊 Tactical Financial Intelligence")
+        res = db.table("logs").select("*").eq("user_id", uid).execute()
+        if res.data:
+            df = pd.DataFrame(res.data)
+            st.dataframe(df)
+            st.download_button("📥 Export CSV", df.to_csv(index=False), "MilPro_Final_Tax_Report.csv")
+        else:
+            st.warning("No data logs found.")
 
 if __name__ == "__main__":
     main()

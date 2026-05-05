@@ -124,42 +124,59 @@ def main():
                     }).execute()
                     st.success(f"Mission Confirmed: {miles} miles. Deduction: ${deduction}")
 
-    # Sector: IDT Tactical
-    
-    # Sector: The Garage
-    elif nav == "The Garage":
-        st.header("🚘 Vehicle Management")
-        st.write("Vehicle tracking system online.")
-# --- UPGRADED SECTOR: IDT TACTICAL ---
+   # --- FULL SPECTRUM MILITARY LOGISTICS SECTOR ---
     elif nav == "IDT Tactical":
-        st.header("✈️ IDT Logistics & Travel")
-        st.info("IRS Rules: Travel must be >100 miles from home for Schedule 1 deductions.")
+        st.header("✈️ Comprehensive Military Tax Engine")
+        
+        # Tabs help separate the "Travel" from the "Gear" so you don't get overwhelmed
+        tab1, tab2, tab3 = st.tabs(["Duty Travel (IDT/AT)", "Professional Gear", "Medical & VA"])
 
-        with st.form("idt_form_detailed"):
-            col1, col2 = st.columns(2)
-            with col1:
-                dist_check = st.checkbox("Is this travel over 100 miles from home?")
-                lodging = st.number_input("Lodging (Unreimbursed Amount)", min_value=0.0)
-                transport = st.number_input("Flights/Rental/Tolls", min_value=0.0)
-            
-            with col2:
-                meals_total = st.number_input("Total Spent on Meals", min_value=0.0)
-                reimb_received = st.number_input("Reimbursement Received (Cap: $750)", value=0.0)
+        with tab1:
+            st.subheader("Tactical Travel & Mileage Gap")
+            with st.form("travel_detailed"):
+                col1, col2 = st.columns(2)
+                with col1:
+                    total_miles = st.number_input("Total Round-Trip Miles Driven", min_value=0.0)
+                    reimb_miles = st.number_input("Miles Reimbursed by Unit", min_value=0.0)
+                    flights_rail = st.number_input("Flights / Rail / Rental Cars", min_value=0.0)
+                
+                with col2:
+                    lodging = st.number_input("Out-of-Pocket Lodging", min_value=0.0)
+                    meals_days = st.number_input("Days Away (For Per Diem Calculation)", step=1)
+                    reimb_total = st.number_input("Total Reimbursement Received ($750 Cap)", value=0.0)
 
-            if st.form_submit_button("CALCULATE TACTICAL DEDUCTION"):
-                if not dist_check:
-                    st.warning("Note: Travel under 100 miles is generally not deductible on Schedule 1.")
+                if st.form_submit_button("CALCULATE TRAVEL TOTAL"):
+                    # Logic for the 72.5c vs 22.5c gap
+                    mileage_deduction = (total_miles * 0.725) - (reimb_miles * 0.225)
+                    # Standard Per Diem Estimate (Simplified)
+                    meal_deduction = (meals_days * 60.00) * 0.50 
+                    
+                    gross_expenses = mileage_deduction + flights_rail + lodging + meal_deduction
+                    net_tax_impact = max(0.0, gross_expenses - reimb_total)
+                    
+                    st.metric("Net Travel Deduction", f"${net_tax_impact:,.2f}")
+                    st.info(f"Includes ${mileage_deduction:,.2f} in mileage gap adjustments.")
+
+        with tab2:
+            st.subheader("Uniforms, Gear & Professional Dues")
+            with st.form("gear_form"):
+                u_maint = st.number_input("Uniform Dry Cleaning & Repair", min_value=0.0)
+                insignia = st.number_input("Rank, Patches, Medals", min_value=0.0)
+                equipment = st.number_input("Duty Gear (Boots, GPS, Multitools)", min_value=0.0)
+                dues = st.number_input("Professional Dues & Subscriptions", min_value=0.0)
                 
-                # IRS allows 50% for meals
-                deductible_meals = meals_total * 0.5
-                total_out_of_pocket = lodging + transport + deductible_meals
-                
-                # The "Net" is what you didn't get back from the military
-                net_deduction = max(0.0, total_out_of_pocket - reimb_received)
-                
-                st.divider()
-                st.metric("Potential Tax Deduction", f"${net_deduction:,.2f}")
-                st.caption(f"Based on ${deductible_meals} (50% Meals) + ${lodging} (Lodging) + ${transport} (Travel)")
+                if st.form_submit_button("SAVE GEAR LOG"):
+                    total_gear = u_maint + insignia + equipment + dues
+                    st.success(f"Logged ${total_gear} in professional expenses.")
+
+        with tab3:
+            st.subheader("Medical & Charitable Transit")
+            st.caption("Tracking mileage for VA appointments and Volunteer work.")
+            med_miles = st.number_input("Medical/VA Mileage", min_value=0.0)
+            charity_miles = st.number_input("Charitable Volunteer Mileage (14¢ rate)", min_value=0.0)
+            if st.button("Calculate Medical"):
+                st.write(f"Medical Deduction: ${med_miles * 0.22}") 
+                # Standard medical rate
     # Sector: Reports
     elif nav == "Reports":
         st.header("📊 Tax Export")

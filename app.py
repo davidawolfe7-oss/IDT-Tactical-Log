@@ -137,7 +137,7 @@ def main():
 
         with tab2:
             st.subheader("Professional Gear")
-           with st.form("gear_form"):
+            with st.form("gear_form"):
                 u_maint = st.number_input("Uniform Cleaning/Repair", min_value=0.0)
                 insignia = st.number_input("Rank/Patches/Medals", min_value=0.0)
                 equipment = st.number_input("Duty Gear (Boots, GPS, Tools)", min_value=0.0)
@@ -153,7 +153,7 @@ def main():
         
         with tab3:
             st.subheader("VA & Medical Transit")
-           with st.form("med_form"):
+            with st.form("med_form"):
                 med_miles = st.number_input("VA/Medical Appointment Miles", min_value=0.0)
                 charity_miles = st.number_input("Charitable/Volunteer Miles (14¢)", min_value=0.0)
                 if st.form_submit_button("LOG MEDICAL MILES"):

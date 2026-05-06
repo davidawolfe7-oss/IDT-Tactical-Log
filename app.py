@@ -5,7 +5,7 @@ import datetime
 import pandas as pd
 
 # --- 1. BOOTSTRAP ---
-st.set_page_config(page_title="Mil-Pro Command", layout="wide")
+st.set_page_config(page_title="Tactical Asset Tracker", layout="wide")
 
 # --- 2. DATABASE UTILITY ---
 def get_db():
@@ -70,7 +70,7 @@ def main():
 
     # AUTH GATE
     if "user" not in st.session_state or st.session_state.user is None:
-        st.title("🪖 MIL-PRO COMMAND")
+        st.title("🪖 Tactical Asset Tracker")
         with st.form("login_form"):
             email = st.text_input("Email")
             pw = st.text_input("Access Key", type="password")

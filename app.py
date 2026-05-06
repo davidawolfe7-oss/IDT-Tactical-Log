@@ -11,7 +11,7 @@ st.set_page_config(page_title="Mil-Pro Command", layout="wide")
 def get_db():
     return create_client(st.secrets["SUPABASE_URL"], st.secrets["SUPABASE_KEY"])
 
-# --- 3. PERSISTENT MEMORY (The Stabilized Fix) ---
+# --- 3. PERSISTENT MEMORY ---
 def get_manager():
     if "cookie_manager" not in st.session_state:
         st.session_state.cookie_manager = stx.CookieManager(key="mil_pro_stable_mgr")
@@ -90,7 +90,6 @@ def main():
     uid = st.session_state.user
 
     st.sidebar.title("⚓ COMMAND CENTER")
-    # Simplified Nav: Focus on Logistics and Intelligence (Reports)
     nav = st.sidebar.radio("Sectors", ["Mission Logistics", "Intelligence (Reports)"])
 
     if st.sidebar.button("LOGOUT"):
@@ -109,50 +108,38 @@ def main():
             "Nontaxable Income"
         ])
 
-with tab1:
+        with tab1:
             st.subheader("Duty Travel & Mileage Gap")
             with st.form("travel_detailed", clear_on_submit=True):
                 col1, col2 = st.columns(2)
                 with col1:
                     date = st.date_input("Travel Date")
-                    # MILEAGE GAP SECTION
                     total_miles = st.number_input("Total Actual Miles Driven (POV)", min_value=0.0)
                     reimb_miles = st.number_input("Miles Reimbursed by Unit", min_value=0.0)
                     st.divider()
-                    # COMMERCIAL TRAVEL
                     flight_cost = st.number_input("Commercial Flight Cost", min_value=0.0)
                     rail_cost = st.number_input("Rail/Bus Ticket Cost", min_value=0.0)
                     rental_cost = st.number_input("Rental Car (Daily Rate/Fees)", min_value=0.0)
                 
                 with col2:
-                    # THE NEW FUEL & INCIDENTAL SECTION
                     rental_fuel = st.number_input("Rental Car Fuel (Keep Receipts)", min_value=0.0)
                     airport_parking = st.number_input("Airport/Duty Parking", min_value=0.0)
                     airport_fees = st.number_input("Baggage Fees / Shuttles / Taxis", min_value=0.0)
                     tolls = st.number_input("Tolls & Ferry Fees", min_value=0.0)
-                    
                     st.divider()
-                    # THE CATCH-ALL FOR THE REIMBURSEMENT
                     reimb_total_cash = st.number_input("Total Cash Reimbursement Received", value=0.0)
 
                 if st.form_submit_button("LOG MISSION LOGISTICS"):
-                    # Calculate the POV Mileage Gap
+                    # 2026 Rates: IRS 0.725 vs Mil 0.225
                     mileage_gap = (total_miles * 0.725) - (reimb_miles * 0.225)
-                    
-                    # Total Commercial/Out-of-Pocket
-                    total_out_of_pocket = (
-                        flight_cost + rail_cost + rental_cost + 
-                        rental_fuel + airport_parking + airport_fees + tolls
-                    )
-                    
-                    # Calculate final tax impact
+                    total_out_of_pocket = (flight_cost + rail_cost + rental_cost + 
+                                           rental_fuel + airport_parking + airport_fees + tolls)
                     final_deduction = max(0.0, (mileage_gap + total_out_of_pocket) - reimb_total_cash)
                     
                     db.table("logs").insert({
                         "user_id": uid, "date": str(date), "category": "Travel",
                         "miles": total_miles, "deduction": final_deduction
                     }).execute()
-                    
                     st.success(f"Log Successful: Tactical Deduction is ${final_deduction:,.2f}")
 
         with tab2:
@@ -185,7 +172,6 @@ with tab1:
 
         with tab4:
             st.subheader("Nontaxable Pay Tracking")
-            st.caption("Tracking BAH, BAS, and Combat Pay to calculate actual taxable footprint.")
             with st.form("income_form"):
                 bah_bas = st.number_input("Monthly BAH + BAS", min_value=0.0)
                 combat_pay = st.number_input("Combat Zone Tax-Exempt Pay", min_value=0.0)

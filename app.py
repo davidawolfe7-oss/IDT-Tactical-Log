@@ -109,45 +109,51 @@ def main():
             "Nontaxable Income"
         ])
 
-        with tab1:
+with tab1:
             st.subheader("Duty Travel & Mileage Gap")
             with st.form("travel_detailed", clear_on_submit=True):
                 col1, col2 = st.columns(2)
                 with col1:
                     date = st.date_input("Travel Date")
-                    # UNIFIED MILEAGE SECTION
-                    total_miles = st.number_input("Total Actual Miles Driven (Round Trip)", min_value=0.0)
-                    reimb_miles = st.number_input("Total Miles Reimbursed by Unit", min_value=0.0)
+                    # MILEAGE GAP SECTION
+                    total_miles = st.number_input("Total Actual Miles Driven (POV)", min_value=0.0)
+                    reimb_miles = st.number_input("Miles Reimbursed by Unit", min_value=0.0)
                     st.divider()
-                    # COMMERCIAL BREAKOUT
+                    # COMMERCIAL TRAVEL
                     flight_cost = st.number_input("Commercial Flight Cost", min_value=0.0)
                     rail_cost = st.number_input("Rail/Bus Ticket Cost", min_value=0.0)
+                    rental_cost = st.number_input("Rental Car (Daily Rate/Fees)", min_value=0.0)
                 
                 with col2:
-                    rental_cost = st.number_input("Rental Car Cost", min_value=0.0)
-                    # AIRPORT SPECIFICS
-                    airport_parking = st.number_input("Airport Long-Term Parking", min_value=0.0)
+                    # THE NEW FUEL & INCIDENTAL SECTION
+                    rental_fuel = st.number_input("Rental Car Fuel (Keep Receipts)", min_value=0.0)
+                    airport_parking = st.number_input("Airport/Duty Parking", min_value=0.0)
                     airport_fees = st.number_input("Baggage Fees / Shuttles / Taxis", min_value=0.0)
-                    tolls = st.number_input("Highway Tolls & Ferry Fees", min_value=0.0)
+                    tolls = st.number_input("Tolls & Ferry Fees", min_value=0.0)
+                    
                     st.divider()
-                    reimb_total_cash = st.number_input("Total Cash Reimbursement Received (The $750 Cap)", value=0.0)
+                    # THE CATCH-ALL FOR THE REIMBURSEMENT
+                    reimb_total_cash = st.number_input("Total Cash Reimbursement Received", value=0.0)
 
                 if st.form_submit_button("LOG MISSION LOGISTICS"):
-                    # 2026 IRS Business Rate: 72.5c | Typical Military POV Rate: ~22.5c
-                    # The math calculates what you SHOULD have gotten vs what you DID get
-                    mileage_tax_impact = (total_miles * 0.725) - (reimb_miles * 0.225)
+                    # Calculate the POV Mileage Gap
+                    mileage_gap = (total_miles * 0.725) - (reimb_miles * 0.225)
                     
-                    total_commercial = flight_cost + rail_cost + rental_cost + airport_parking + airport_fees + tolls
+                    # Total Commercial/Out-of-Pocket
+                    total_out_of_pocket = (
+                        flight_cost + rail_cost + rental_cost + 
+                        rental_fuel + airport_parking + airport_fees + tolls
+                    )
                     
-                    # Net Deduction logic
-                    final_deduction = max(0.0, (mileage_tax_impact + total_commercial) - reimb_total_cash)
+                    # Calculate final tax impact
+                    final_deduction = max(0.0, (mileage_gap + total_out_of_pocket) - reimb_total_cash)
                     
                     db.table("logs").insert({
                         "user_id": uid, "date": str(date), "category": "Travel",
                         "miles": total_miles, "deduction": final_deduction
                     }).execute()
                     
-                    st.success(f"Mission Logged. Calculated Tax Impact: ${final_deduction:,.2f}")
+                    st.success(f"Log Successful: Tactical Deduction is ${final_deduction:,.2f}")
 
         with tab2:
             st.subheader("Uniforms, Gear & Professional Dues")

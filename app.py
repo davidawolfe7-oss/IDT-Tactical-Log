@@ -69,22 +69,28 @@ def main():
     """, unsafe_allow_html=True)
 
     # AUTH GATE
-    if "user" not in st.session_state:
-        st.session_state.user = manager.get('mil_pro_user_id')
-
-    if st.session_state.user is None:
-        st.title("Tactical Asset Tracker")
-        with st.form("auth_form"):
+    # AUTH GATE
+    if "user" not in st.session_state or st.session_state.user is None:
+        st.title("🪖 MIL-PRO COMMAND")
+        with st.form("login_form"):
             email = st.text_input("Email")
             pw = st.text_input("Access Key", type="password")
             if st.form_submit_button("AUTHENTICATE"):
                 try:
                     db = get_db()
+                    # Perform the login
                     res = db.auth.sign_in_with_password({"email": email, "password": pw})
-                    st.session_state.user = res.user.id
-                    manager.set('mil_pro_user_id', res.user.id)
-                    st.rerun()
-                except: st.error("Authentication Failed.")
+                    
+                    # SAFETY CHECK: Only set the user if 'res.user' actually exists
+                    if res.user:
+                        st.session_state.user = res.user.id
+                        manager.set('mil_pro_user_id', res.user.id)
+                        st.rerun()
+                    else:
+                        st.error("Authentication failed: No user returned.")
+                except Exception as e:
+                    # This catches things like wrong passwords or connection issues
+                    st.error(f"Access Denied: {str(e)}")
         return
 
     # COMMAND CENTER

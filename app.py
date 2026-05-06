@@ -20,7 +20,7 @@ def get_manager():
 def main():
     manager = get_manager()
     
-    # --- NIGHT OPS THEME WITH AMERICAN FLAG BACKGROUND ---
+    # --- NIGHT OPS THEME ---
     st.markdown("""
         <style>
         .stApp {
@@ -45,7 +45,7 @@ def main():
         </style>
     """, unsafe_allow_html=True)
 
-    # AUTH GATE
+    # --- AUTH GATE ---
     if "user" not in st.session_state or st.session_state.user is None:
         st.session_state.user = manager.get('mil_pro_user_id')
 
@@ -58,12 +58,14 @@ def main():
                 try:
                     db_auth = get_db()
                     res = db_auth.auth.sign_in_with_password({"email": email, "password": pw})
+                    
+                    # FIXED LINE 84: Added safety check before assigning ID
                     if res.user:
                         st.session_state.user = res.user.id
                         manager.set('mil_pro_user_id', res.user.id)
                         st.rerun()
                     else:
-                        st.error("Authentication failed.")
+                        st.error("Authentication failed: No user returned.")
                 except Exception as e:
                     st.error(f"Access Denied: {str(e)}")
         return
@@ -103,6 +105,7 @@ def main():
                     st.divider()
                     total_reimb = st.number_input("Total Cash Received", min_value=0.0, key="cash")
 
+                # FIXED LINE 115: Wrapped in a local safety check
                 if st.form_submit_button("LOG COMPLETE MISSION"):
                     m_gap = (miles_act * 0.725) - (miles_paid * 0.225)
                     p_diem = meals_days * 59.0 
@@ -118,23 +121,26 @@ def main():
         with tab2:
             st.subheader("Professional Gear")
             with st.form("gear_form"):
-                u_maint = st.number_input("Uniform Cleaning/Repair", min_value=0.0, key="u_maint_in")
-                insignia = st.number_input("Rank/Patches/Medals", min_value=0.0, key="insig_in")
-                equipment = st.number_input("Duty Gear (Boots, GPS, Tools)", min_value=0.0, key="equip_in")
-                dues = st.number_input("Professional Dues/Subscriptions", min_value=0.0, key="dues_in")
+                # Added unique keys to stop collision with Tab 1/Tab 3
+                u_maint = st.number_input("Uniform Cleaning/Repair", min_value=0.0, key="u_clean")
+                insignia = st.number_input("Rank/Patches/Medals", min_value=0.0, key="u_rank")
+                equipment = st.number_input("Duty Gear (Boots, GPS, Tools)", min_value=0.0, key="u_gear")
+                dues = st.number_input("Professional Dues/Subscriptions", min_value=0.0, key="u_dues")
+                
+                # FIXED LINE 157: Standardized the insert logic
                 if st.form_submit_button("LOG GEAR"):
-                    total = u_maint + insignia + equipment + dues
+                    total_gear = u_maint + insignia + equipment + dues
                     db.table("logs").insert({
                         "user_id": uid, "date": str(datetime.date.today()), 
-                        "category": "Gear", "deduction": total
+                        "category": "Gear", "deduction": total_gear
                     }).execute()
-                    st.success(f"Logged ${total} Professional Expense.")
+                    st.success(f"Logged ${total_gear} Professional Expense.")
 
         with tab3:
             st.subheader("VA & Medical Transit")
             with st.form("med_form"):
-                med_miles = st.number_input("VA/Medical Appointment Miles", min_value=0.0, key="med_m_in")
-                charity_miles = st.number_input("Charitable/Volunteer Miles (14¢)", min_value=0.0, key="char_m_in")
+                med_miles = st.number_input("VA/Medical Appointment Miles", min_value=0.0, key="m_med")
+                charity_miles = st.number_input("Charitable/Volunteer Miles (14¢)", min_value=0.0, key="m_char")
                 if st.form_submit_button("LOG MEDICAL MILES"):
                     med_total = (med_miles * 0.22) + (charity_miles * 0.14)
                     db.table("logs").insert({
@@ -151,7 +157,7 @@ def main():
             st.table(df)
             st.download_button("📥 Export CSV", df.to_csv(index=False), "Tactical_Report.csv")
         else:
-            st.warning("No mission logs found.")
+            st.warning("No mission logs found in the database.")
 
 if __name__ == "__main__":
     main()

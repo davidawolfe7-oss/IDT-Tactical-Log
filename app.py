@@ -20,15 +20,51 @@ def get_manager():
 def main():
     manager = get_manager()
     
-    # NIGHT OPS THEME
+    # --- NIGHT OPS THEME WITH AMERICAN FLAG BACKGROUND ---
     st.markdown("""
         <style>
         .stApp {
-            background: linear-gradient(rgba(0,0,0,0.85), rgba(0,0,0,0.85)), 
-            url('https://images.unsplash.com/photo-1501339847302-ac426a4a7cbb?auto=format&fit=crop&q=80&w=2000');
-            background-size: cover; background-attachment: fixed; color: white;
+            /* This creates a dark overlay on top of the flag so you can still read the text */
+            background: linear-gradient(rgba(0, 0, 0, 0.8), rgba(0, 0, 0, 0.85)), 
+                        url('https://images.unsplash.com/photo-1501339847302-ac426a4a7cbb?auto=format&fit=crop&q=80&w=2000');
+            background-size: cover !important;
+            background-attachment: fixed !important;
+            background-position: center !important;
+            color: #FFFFFF !important;
         }
-        div[data-testid="stForm"] { background-color: rgba(0,0,0,0.8); border: 1px solid #3C3B6E; padding: 25px; }
+        
+        /* Sidebar Styling */
+        [data-testid="stSidebar"] {
+            background-color: rgba(0, 0, 0, 0.9) !important;
+        }
+
+        /* Form Styling (Tactical Black) */
+        div[data-testid="stForm"] {
+            background-color: rgba(0, 0, 0, 0.8) !important;
+            border: 1px solid #3C3B6E !important;
+            border-radius: 10px;
+            padding: 25px;
+        }
+
+        /* Tactical Button Colors (Old Glory Blue and Red) */
+        .stButton>button {
+            background-color: #3C3B6E !important;
+            color: white !important;
+            border: 1px solid #FFFFFF !important;
+            font-weight: bold;
+            width: 100%;
+        }
+        .stButton>button:hover {
+            background-color: #B22234 !important;
+            border: 1px solid #B22234 !important;
+        }
+
+        /* Metric Styling */
+        [data-testid="stMetric"] {
+            background-color: rgba(255, 255, 255, 0.05);
+            border-left: 5px solid #B22234;
+            padding: 15px;
+        }
         </style>
     """, unsafe_allow_html=True)
 
@@ -81,17 +117,15 @@ def main():
                     flight = st.number_input("Flight/Rail Cost", min_value=0.0, key="air")
                     rental = st.number_input("Rental Car Cost", min_value=0.0, key="rent")
                     rent_fuel = st.number_input("Rental Fuel", min_value=0.0, key="rfuel")
-                    laundry = st.number_input("Laundry/Dry Cleaning (Travel Only)", min_value=0.0, key="dry")
+                    laundry = st.number_input("Laundry/Dry Cleaning (Travel)", min_value=0.0, key="dry")
                     airport_etc = st.number_input("Parking/Taxis/Baggage", min_value=0.0, key="port")
                     st.divider()
                     total_reimb = st.number_input("Total Cash Received (Reimbursement)", min_value=0.0, key="cash")
 
                 if st.form_submit_button("LOG COMPLETE MISSION"):
-                    # MATH: POV Gap + Per Diem ($59/day avg) + Expenses - Reimbursement
                     m_gap = (miles_act * 0.725) - (miles_paid * 0.225)
-                    per_diem_val = meals_days * 59.0 # Conservative Standard
+                    per_diem_val = meals_days * 59.0 
                     total_exp = lodging + flight + rental + rent_fuel + laundry + airport_etc + per_diem_val
-                    
                     final_impact = max(0.0, (m_gap + total_exp) - total_reimb)
                     
                     db.table("logs").insert({

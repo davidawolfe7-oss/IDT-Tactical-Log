@@ -26,7 +26,7 @@ def main():
         .stApp {
             /* This creates a dark overlay on top of the flag so you can still read the text */
             background: linear-gradient(rgba(0, 0, 0, 0.8), rgba(0, 0, 0, 0.85)), 
-                        url('https://images.unsplash.com/photo-1501339847302-ac426a4a7cbb?auto=format&fit=crop&q=80&w=2000');
+                        url('https://img.magnific.com/free-photo/american-flag-blowing-wind-background-ai-generative_123827-23752.jpg?w=2000');
             background-size: cover !important;
             background-attachment: fixed !important;
             background-position: center !important;
@@ -73,7 +73,7 @@ def main():
         st.session_state.user = manager.get('mil_pro_user_id')
 
     if st.session_state.user is None:
-        st.title("🪖 MIL-PRO COMMAND")
+        st.title("Tactical Asset Tracker")
         with st.form("auth_form"):
             email = st.text_input("Email")
             pw = st.text_input("Access Key", type="password")
@@ -98,11 +98,12 @@ def main():
         st.rerun()
 
     if nav == "Mission Logistics":
-        st.header("✈️ Comprehensive Logistics & Per Diem")
+        st.header("🪖 Comprehensive Military Logistics")
         
-        tab1, tab2, tab3 = st.tabs(["Duty Travel", "Gear & Uniforms", "Medical/VA"])
+        tab1, tab2, tab3 = st.tabs(["Duty Travel", "Professional Gear", "VA & Medical Transit"])
 
         with tab1:
+            st.subheader("Duty Travel")
             with st.form("travel_v3", clear_on_submit=True):
                 c1, c2 = st.columns(2)
                 with c1:
@@ -135,18 +136,33 @@ def main():
                     st.success(f"Mission Logged. Calculated Impact: ${final_impact:,.2f}")
 
         with tab2:
-            with st.form("gear_v3"):
-                amt = st.number_input("Gear/Uniform Cost", min_value=0.0, key="g_amt")
+            st.subheader("Professional Gear")
+           with st.form("gear_form"):
+                u_maint = st.number_input("Uniform Cleaning/Repair", min_value=0.0)
+                insignia = st.number_input("Rank/Patches/Medals", min_value=0.0)
+                equipment = st.number_input("Duty Gear (Boots, GPS, Tools)", min_value=0.0)
+                dues = st.number_input("Professional Dues/Subscriptions", min_value=0.0)
                 if st.form_submit_button("LOG GEAR"):
-                    db.table("logs").insert({"user_id": uid, "category": "Gear", "deduction": amt}).execute()
-                    st.success("Gear Logged.")
+                    total = u_maint + insignia + equipment + dues
+                    db.table("logs").insert({
+                        "user_id": uid, "date": str(datetime.date.today()), 
+                        "category": "Gear", "deduction": total
+                    }).execute()
+                    st.success(f"Logged ${total} Professional Expense.")
+
         
         with tab3:
-            with st.form("med_v3"):
-                m_miles = st.number_input("VA Travel Miles", min_value=0.0, key="med_m")
-                if st.form_submit_button("LOG MEDICAL"):
-                    db.table("logs").insert({"user_id": uid, "category": "Medical", "deduction": m_miles*0.22}).execute()
-                    st.success("Medical Logged.")
+            st.subheader("VA & Medical Transit")
+           with st.form("med_form"):
+                med_miles = st.number_input("VA/Medical Appointment Miles", min_value=0.0)
+                charity_miles = st.number_input("Charitable/Volunteer Miles (14¢)", min_value=0.0)
+                if st.form_submit_button("LOG MEDICAL MILES"):
+                    med_total = (med_miles * 0.22) + (charity_miles * 0.14)
+                    db.table("logs").insert({
+                        "user_id": uid, "date": str(datetime.date.today()), 
+                        "category": "Medical", "deduction": med_total
+                    }).execute()
+                    st.success(f"Medical Logged: ${med_total:,.2f}")
 
     elif nav == "Intelligence":
         st.header("📊 Tactical Report")

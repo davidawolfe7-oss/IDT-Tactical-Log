@@ -13,7 +13,8 @@ def get_db():
 
 def get_manager():
     if "cookie_manager" not in st.session_state:
-        st.session_state.cookie_manager = stx.CookieManager(key="mil_pro_v3_mgr")
+        # Internal key updated to tat
+        st.session_state.cookie_manager = stx.CookieManager(key="tat_v1_mgr")
     return st.session_state.cookie_manager
 
 # --- 3. MAIN APP ---
@@ -45,9 +46,9 @@ def main():
         </style>
     """, unsafe_allow_html=True)
 
-    # AUTH GATE
+    # AUTH GATE - Internal key updated to tat_user_id
     if "user" not in st.session_state or st.session_state.user is None:
-        st.session_state.user = manager.get('mil_pro_user_id')
+        st.session_state.user = manager.get('tat_user_id')
 
     if st.session_state.user is None:
         st.title("🪖 TACTICAL ASSET TRACKER")
@@ -56,26 +57,24 @@ def main():
             pw = st.text_input("Access Key", type="password")
             if st.form_submit_button("AUTHENTICATE"):
                 try:
-                    # FIX LINE 84: Pulling DB directly here to avoid scope issues
                     local_db = get_db()
                     res = local_db.auth.sign_in_with_password({"email": email, "password": pw})
                     
                     if res.user:
                         st.session_state.user = res.user.id
-                        manager.set('mil_pro_user_id', res.user.id)
+                        manager.set('tat_user_id', res.user.id)
                         st.rerun()
                 except Exception as e:
                     st.error(f"Access Denied: {str(e)}")
         return
 
     # COMMAND CENTER
-    # We define these once here
     db = get_db()
     uid = st.session_state.user
     
     nav = st.sidebar.radio("Sectors", ["Mission Logistics", "Intelligence"])
     if st.sidebar.button("LOGOUT"):
-        manager.delete('mil_pro_user_id')
+        manager.delete('tat_user_id')
         st.session_state.user = None
         st.rerun()
 
@@ -109,8 +108,6 @@ def main():
                     m_gap = (miles_act * 0.725) - (miles_paid * 0.225)
                     total_exp = lodging + flight + rental + rent_fuel + laundry + airport_etc + (meals_days * 59.0)
                     final_impact = max(0.0, (m_gap + total_exp) - total_reimb)
-                    
-                    # FIX LINE 118: Using st.session_state.user directly to ensure it's never 'None'
                     db.table("logs").insert({
                         "user_id": st.session_state.user, 
                         "date": str(t_date), 
@@ -125,10 +122,8 @@ def main():
                 insignia = st.number_input("Rank/Patches/Medals", min_value=0.0, key="u_insig")
                 equipment = st.number_input("Duty Gear (Boots, GPS, Tools)", min_value=0.0, key="u_equip")
                 dues = st.number_input("Professional Dues/Subscriptions", min_value=0.0, key="u_dues")
-                
                 if st.form_submit_button("LOG GEAR"):
                     total = u_maint + insignia + equipment + dues
-                    # FIX LINE 163: Re-pulling the ID directly here
                     db.table("logs").insert({
                         "user_id": st.session_state.user, 
                         "date": str(datetime.date.today()), 

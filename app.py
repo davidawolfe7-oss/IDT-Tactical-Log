@@ -100,17 +100,57 @@ def main():
                         except Exception as e:
                             st.error(f"Registration Error: {str(e)}")
         return
-
-    # --- COMMAND CENTER (Only runs if user is logged in) ---
+# --- COMMAND CENTER ---
     db = get_db()
     uid = st.session_state.user
     
-    # NAVIGATION
-    nav = st.sidebar.radio("Sectors", ["Mission Logistics", "Intelligence", "Bug Report"])
+    # 1. NAVIGATION (Added 'Mission Briefing')
+    nav = st.sidebar.radio("Sectors", ["Mission Briefing", "Mission Logistics", "Intelligence", "Bug Report"])
+    
     if st.sidebar.button("LOGOUT"):
         manager.delete('tat_user_id')
         st.session_state.user = None
         st.rerun()
+
+    # 2. SECTOR: MISSION BRIEFING (New Dedicated View)
+    if nav == "Mission Briefing":
+        st.title("📂 MISSION BRIEFING: Tactical Tax Intel")
+        st.info("Read this section to understand how to maximize your 2026 tax returns using this app.")
+        
+        st.markdown("""
+        ### **Strategic Overview**
+        The Tactical Asset Tracker (TAT) is designed to help National Guard and Reserve members recover unreimbursed costs associated with military service. 
+
+        #### **📡 The "Above-the-Line" Travel Win**
+        **Crucial Rule:** If you travel **more than 100 miles** from home for military duty (IDT, AT, etc.), the IRS allows you to deduct unreimbursed travel expenses as an **Adjustment to Income**.
+        *   **Standard Deduction Friendly:** You claim this *even if you do not itemize*.
+        *   **The Mileage Gap:** The gov often pays a lower rate (approx. $0.225) while the IRS allows a much higher business rate ($0.725). The app calculates this 'Gap' for you automatically.
+        
+        #### **🛡️ The Tactical Vault (Audit Defense)**
+        *   **Verification:** The IRS requires proof for lodging and any expense over $75. 
+        *   **The Vault:** Snap photos of receipts immediately. Digital copies are audit-ready and won't fade like thermal paper.
+
+        #### **🔧 Professional Gear & Medical**
+        *   **Gear:** Uniforms and MOS-specific gear are typically **Itemized Deductions**. Track them here so you are prepared if your total expenses exceed the 2026 Standard Deduction ($16,100 Single / $32,200 Joint).
+        *   **VA Transit:** Medical miles contribute to your itemized medical expense totals (deductible once they exceed 7.5% of your AGI).
+        """)
+        
+        st.success("💡 **Ready to Start?** Switch to 'Mission Logistics' in the sidebar to log your first mission.")
+
+    # 3. SECTOR: MISSION LOGISTICS
+    elif nav == "Mission Logistics":
+        st.header("🪖 Comprehensive Military Logistics")
+        tab1, tab2, tab3, tab4 = st.tabs(["Duty Travel", "Professional Gear", "VA & Medical Transit", "Vault Upload"])
+        # ... (Your existing tab code here)
+
+    # 4. SECTOR: INTELLIGENCE
+    elif nav == "Intelligence":
+        # ... (Your existing Intelligence code here)
+
+    # 5. SECTOR: BUG REPORT
+    elif nav == "Bug Report":
+        # ... (Your existing Bug Report code here)
+
 
     if nav == "Mission Logistics":
         st.header("🪖 Comprehensive Military Logistics")

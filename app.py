@@ -207,51 +207,57 @@ def main():
                         st.warning("No file selected for upload.")
     elif nav == "Intelligence":
         st.header("📊 Tactical Report & Intelligence")
+        
+        # Fetch data
         res = db.table("logs").select("*").eq("user_id", uid).order("date", desc=True).execute()
         
         if res.data:
             df = pd.DataFrame(res.data)
             
-            # --- NEW: GENERATE VIEWING LINKS ---
-            def get_view_link(path):
-                if path and "/" in str(path): # Check if it's a valid storage path
-                    try:
-                        # Generates a 60-minute secure link to view the file
-                        url_res = db.storage.from_("receipts").create_signed_url(path, 3600)
-                        return url_res['signedURL']
-                    except:
-                        return None
-                return None
-
-            # Add a 'View receipt' column using the signed URL
-            df['View Receipt'] = df['receipt_url'].apply(get_view_link)
-
-            # Reorder for clarity
-            display_df = df[["date", "purpose", "total_deduction", "View Receipt"]]
+            # --- 1. SELECTION & PREVIEW LOGIC ---
+            st.subheader("🔎 Intelligence Review")
             
-            st.download_button(
-                label="📥 EXPORT LOGS TO CSV", 
-                data=df.to_csv(index=False).encode('utf-8'), 
-                file_name=f"Tactical_Log_{datetime.date.today()}.csv"
-            )
+            # Create a selection list of logs that actually have receipts
+            receipt_logs = df[df['receipt_url'].notna() & (df['receipt_url'] != "")]
             
-            # Use st.column_config to make the URL a clickable link
-            st.data_editor(
-                display_df,
-                column_config={
-                    "View Receipt": st.column_config.LinkColumn(
-                        "Receipt Link",
-                        help="Secure link to view uploaded receipt (Expires in 1 hour)",
-                        validate=r"^https://.*",
-                        display_text="Open Image"
-                    ),
-                },
-                disabled=True,
-                use_container_width=True,
-                hide_index=True
-            )
+            col1, col2 = st.columns([1, 1])
+            
+            with col1:
+                st.write("### Mission Logs")
+                st.dataframe(
+                    df[["date", "purpose", "total_deduction"]], 
+                    use_container_width=True, 
+                    hide_index=True
+                )
+                
+                st.download_button(
+                    label="📥 EXPORT LOGS TO CSV", 
+                    data=df.to_csv(index=False).encode('utf-8'), 
+                    file_name=f"Tactical_Log_{datetime.date.today()}.csv"
+                )
+
+            with col2:
+                st.write("### 🖼️ Vault Preview")
+                if not receipt_logs.empty:
+                    # Dropdown to select which receipt to view
+                    selection = st.selectbox(
+                        "Select a mission to view receipt:",
+                        options=receipt_logs.index,
+                        format_func=lambda x: f"{receipt_logs.loc[x, 'date']} - {receipt_logs.loc[x, 'purpose']}"
+                    )
+                    
+                    if selection is not None:
+                        path = receipt_logs.loc[selection, 'receipt_url']
+                        try:
+                            # Generate a short-lived URL to display the image
+                            url_res = db.storage.from_("receipts").create_signed_url(path, 60)
+                            st.image(url_res['signedURL'], caption=f"Evidence for: {receipt_logs.loc[selection, 'purpose']}", use_container_width=True)
+                        except Exception as e:
+                            st.error("Could not retrieve image from the Vault.")
+                else:
+                    st.info("No images found in the Vault for the current logs.")
         else:
-            st.info("No tactical logs found in the database.")
+            st.info("No tactical logs found in the database.")                    
     elif nav == "Bug Report":
         st.header("🐞 Beta Phase: Bug Reporting")
         st.info("Log glitches or feature suggestions here. This data is sent directly to development.")

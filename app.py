@@ -136,8 +136,26 @@ def main():
 
         with tab2:
             st.subheader("Professional Gear")
-            st.warning("⚠️ **IRS COMPLIANCE:** You MUST upload or maintain a physical receipt for any single purchase **over $75**.")
-            st.info("**PURPOSE:** Records uniform procurement, rank insignia, cleaning, and mission gear.")
+            st.warning("⚠️ **IRS COMPLIANCE:** You MUST upload or maintain a physical receipt for any single purchase **over $75**. Logs without proof for high-value items may be disqualified during an audit.")
+
+            st.info("""
+            **PURPOSE:** Records the cost of maintaining professional readiness. 
+            Includes uniform procurement, rank insignia, cleaning services, and mission-essential equipment 
+            not issued by the unit (e.g., boots, tactical tools, and professional dues).
+            """)
+
+            with st.expander("📝 VIEW GEAR LOGGING GUIDELINES (IRS & JAG STANDARDS)"):
+                st.markdown("""
+                ### ✅ WHAT YOU CAN LOG
+                *   **Uniforms & Maintenance:** OCPs, ASUs, Mess Dress, and sewing/cleaning.
+                *   **Rank & Insignia:** Patches, medals, ribbons, name tapes.
+                *   **MOS-Specific Gear:** Equipment required for duty but not issued (e.g., specialized driving gloves for 88M, rugged tools for 12N, personal GPS/Multitools).
+                *   **Dues:** AUSA, NGAUS, or MOS trade subscriptions.
+
+                ### ❌ WHAT YOU CANNOT LOG
+                *   **Daily Wear:** Plain t-shirts, standard socks, or PT gear (civilian-suitable).
+                *   **Grooming:** Haircuts, shaving supplies, or standard gym memberships.
+                """)
 
             with st.form("gear_form", clear_on_submit=True):
                 gear_date = st.date_input("Purchase Date", value=datetime.date.today())

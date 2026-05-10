@@ -114,16 +114,17 @@ def main():
                     }).execute()
                     st.success(f"Mission Logged. Calculated Impact: ${final_impact:,.2f}")
 
-        with tab2:
+with tab2:
             st.subheader("Professional Gear")
+            
+            # --- ARCHITECT WARNING COMPONENT (REINSTATED) ---
+            st.warning("⚠️ **IRS COMPLIANCE:** You MUST upload or maintain a physical receipt for any single purchase **over $75**. Logs without proof for high-value items may be disqualified during an audit.")
+
             st.info("""
             **PURPOSE:** Records the cost of maintaining professional readiness. 
             Includes uniform procurement, rank insignia, cleaning services, and mission-essential equipment 
             not issued by the unit (e.g., boots, tactical tools, and professional dues).
             """)
-            
-            # Architect Warning Component
-            st.warning("⚠️ **IRS COMPLIANCE:** You MUST upload or maintain a physical receipt for any single purchase **over $75**. Logs without proof for high-value items may be disqualified during an audit.")
 
             with st.expander("📝 VIEW GEAR LOGGING GUIDELINES (IRS & JAG STANDARDS)"):
                 st.markdown("""
@@ -138,30 +139,53 @@ def main():
                 *   **Grooming:** Haircuts, shaving supplies, or standard gym memberships.
                 """)
 
-            with st.form("gear_form"):
+            with st.form("gear_form", clear_on_submit=True):
                 gear_date = st.date_input("Purchase Date", value=datetime.date.today())
-                u_maint = st.number_input("Uniform Cleaning/Repair", min_value=0.0)
-                insignia = st.number_input("Rank/Patches/Medals", min_value=0.0)
-                equipment = st.number_input("Duty Gear (Boots, GPS, Tools)", min_value=0.0)
-                dues = st.number_input("Professional Dues/Subscriptions", min_value=0.0)
+                
+                c1, c2 = st.columns(2)
+                with c1:
+                    u_maint = st.number_input("Uniform/Cleaning", min_value=0.0)
+                    insignia = st.number_input("Rank/Patches", min_value=0.0)
+                with c2:
+                    equipment = st.number_input("Duty Gear/Tools", min_value=0.0)
+                    dues = st.number_input("Prof. Dues", min_value=0.0)
                 
                 st.divider()
-                st.write("📷 **Receipt Capture**")
-                receipt_file = st.file_uploader("Upload or Take Photo of Receipt", type=['jpg', 'jpeg', 'png'])
+                st.write("📷 **RECEIPT CAPTURE**")
+                receipt_file = st.file_uploader("Take Photo or Upload", type=['jpg', 'jpeg', 'png'])
                 
-                if st.form_submit_button("LOG GEAR & SAVE RECEIPT"):
+                if st.form_submit_button("DEPLOY LOG & UPLOAD IMAGE"):
                     total_g = u_maint + insignia + equipment + dues
-                    r_name = f"receipt_{uid}_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}.png" if receipt_file else "No Receipt Uploaded"
                     
-                    db.table("logs").insert({
-                        "user_id": uid, "date": str(gear_date), 
-                        "purpose": f"Gear: {r_name}", "total_deduction": total_g
-                    }).execute()
-                    
-                    if receipt_file:
-                        st.success(f"Log Saved with Receipt: {r_name}")
+                    if total_g > 0:
+                        # 1. Generate Unique Path
+                        timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+                        file_path = f"{uid}/{timestamp}_receipt.png" if receipt_file else None
+                        
+                        # 2. Database Insert
+                        db.table("logs").insert({
+                            "user_id": uid, 
+                            "date": str(gear_date), 
+                            "purpose": "Professional Gear",
+                            "total_deduction": total_g,
+                            "receipt_url": file_path
+                        }).execute()
+                        
+                        # 3. Storage Upload
+                        if receipt_file:
+                            try:
+                                db.storage.from_("receipts").upload(
+                                    path=file_path,
+                                    file=receipt_file.getvalue(),
+                                    file_options={"content-type": receipt_file.type}
+                                )
+                                st.success(f"Mission Success: Logged ${total_g} with receipt.")
+                            except Exception as e:
+                                st.error(f"Vault Upload Error: {str(e)}")
+                        else:
+                            st.success(f"Log Complete: ${total_g} (No receipt provided).")
                     else:
-                        st.success(f"Log Complete. Total: ${total_g}")
+                        st.warning("No values entered to log.")
 
         with tab3:
             st.subheader("VA & Medical Transit")

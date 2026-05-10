@@ -78,7 +78,7 @@ def main():
         st.session_state.user = None
         st.rerun()
 
-    if nav == "Mission Logistics":
+if nav == "Mission Logistics":
         st.header("🪖 Comprehensive Military Logistics")
         
         tab1, tab2, tab3 = st.tabs(["Duty Travel", "Professional Gear", "VA & Medical Transit"])
@@ -86,6 +86,7 @@ def main():
         with tab1:
             st.subheader("Duty Travel")
             with st.form("travel_v3", clear_on_submit=True):
+                # ... (Keep your existing columns c1 and c2 here) ...
                 c1, c2 = st.columns(2)
                 with c1:
                     t_date = st.date_input("Travel Date", key="date_id")
@@ -105,55 +106,61 @@ def main():
                     total_reimb = st.number_input("Total Cash Received", min_value=0.0, key="cash")
 
                 if st.form_submit_button("LOG COMPLETE MISSION"):
-                    try:
-                        m_gap = (miles_act * 0.725) - (miles_paid * 0.225)
-                        total_exp = lodging + flight + rental + rent_fuel + laundry + airport_etc + (meals_days * 59.0)
-                        final_impact = max(0.0, (m_gap + total_exp) - total_reimb)
-                        
-                        # DIAGNOSTIC CHECK
-                        payload = {
-                            "user_id": st.session_state.user, 
-                            "date": str(t_date), 
-                            "category": "Travel", 
-                            "deduction": final_impact
-                        }
-                        
-                        # This line tries the insert
-                        db.table("logs").insert(payload).execute()
-                        st.success(f"Mission Logged. Calculated Impact: ${final_impact:,.2f}")
-                        
-                    except Exception as e:
-                        # THIS WILL SHOW THE REAL ERROR ON YOUR SCREEN
-                        st.error(f"DATABASE REJECTED ENTRY: {str(e)}")
-                        st.info(f"DEBUG DATA: {payload}")
+                    # 1. THE CALCULATIONS
+                    m_gap = (miles_act * 0.725) - (miles_paid * 0.225)
+                    total_exp = lodging + flight + rental + rent_fuel + laundry + airport_etc + (meals_days * 59.0)
+                    final_impact = max(0.0, (m_gap + total_exp) - total_reimb)
+                    
+                    # 2. THE INSERT (Mapped to your DB columns)
+                    db.table("logs").insert({
+                        "user_id": st.session_state.user,
+                        "date": str(t_date),
+                        "purpose": "Mission Travel",
+                        "miles": miles_act,
+                        "reimbursement": total_reimb,
+                        "lodging": lodging,
+                        "fuel_gas": rent_fuel,
+                        "tolls_parking": airport_etc,
+                        "total_deduction": final_impact,
+                        "travel_mode": "POV/Rental"
+                    }).execute()
+                    st.success(f"Mission Logged. Calculated Impact: ${final_impact:,.2f}")
 
         with tab2:
             st.subheader("Professional Gear")
             with st.form("gear_form"):
+                # ... (Keep your gear inputs) ...
                 u_maint = st.number_input("Uniform Cleaning/Repair", min_value=0.0, key="u_maint")
                 insignia = st.number_input("Rank/Patches/Medals", min_value=0.0, key="u_insig")
                 equipment = st.number_input("Duty Gear (Boots, GPS, Tools)", min_value=0.0, key="u_equip")
                 dues = st.number_input("Professional Dues/Subscriptions", min_value=0.0, key="u_dues")
+                
                 if st.form_submit_button("LOG GEAR"):
-                    total = u_maint + insignia + equipment + dues
+                    total_g = u_maint + insignia + equipment + dues
+                    # Mapped to your 'purpose' and 'total_deduction' columns
                     db.table("logs").insert({
                         "user_id": st.session_state.user, 
                         "date": str(datetime.date.today()), 
-                        "category": "Gear", "deduction": total
+                        "purpose": "Professional Gear/Maintenance", 
+                        "total_deduction": total_g
                     }).execute()
-                    st.success(f"Logged ${total} Professional Expense.")
+                    st.success(f"Logged ${total_g} Professional Expense.")
 
         with tab3:
             st.subheader("VA & Medical Transit")
             with st.form("med_form"):
                 med_miles = st.number_input("VA/Medical Appointment Miles", min_value=0.0, key="m_med")
                 charity_miles = st.number_input("Charitable/Volunteer Miles", min_value=0.0, key="m_char")
+                
                 if st.form_submit_button("LOG MEDICAL MILES"):
                     med_total = (med_miles * 0.22) + (charity_miles * 0.14)
+                    # Mapped to your 'purpose', 'miles', and 'total_deduction' columns
                     db.table("logs").insert({
                         "user_id": st.session_state.user, 
                         "date": str(datetime.date.today()), 
-                        "category": "Medical", "deduction": med_total
+                        "purpose": "VA Medical/Charity Travel",
+                        "miles": med_miles + charity_miles,
+                        "total_deduction": med_total
                     }).execute()
                     st.success(f"Medical Logged: ${med_total:,.2f}")
 

@@ -183,10 +183,10 @@ if nav == "Mission Logistics":
                 st.table(df)
             else:
                 st.info("No mission logs found in the database.")
-                
-        except Exception as e:
+
+        except Exception as e:       
             st.error(f"Intelligence Sector Error: {str(e)}")
-            st.info("Check if your Supabase column names match: date, purpose, miles, total_deduction, reimbursement")
+            st.info("check if your Supabase column names match: date, purpose, miles, total_deduction, reimbursement")
 
 if __name__ == "__main__":
     main()

@@ -162,13 +162,6 @@ def main():
                 3.  **Standard Trip:** If the military paid your full distance, enter the **same number** in both boxes.
                 """)
             
-            with st.expander("📖 Strategic Overview: The Mileage Gap"):
-                st.write("""
-                **Actual Round-Trip Miles:** Your true odometer reading.
-                **Miles Reimbursed by Gov:** Distance paid on your travel voucher.
-                **The $750 Cap:** If your reimbursement was capped, this is why 'Paid Miles' might be lower.
-                """)
-            
             with st.form("travel_v3", clear_on_submit=True):
                 st.write("### 🛰️ Mission Transit Data")
                 c1, c2 = st.columns(2)
@@ -194,7 +187,7 @@ def main():
 
         with tab2:
             st.subheader("Professional Gear")
-             st.warning("⚠️ **IRS COMPLIANCE:** You MUST upload or maintain a physical receipt for any single purchase **over $75**.")
+            st.warning("⚠️ **IRS COMPLIANCE:** You MUST upload or maintain a physical receipt for any single purchase **over $75**.")
 
             st.info("""
             **PURPOSE:** Records the cost of maintaining professional readiness. 
@@ -246,7 +239,6 @@ def main():
 
         with tab4:
             st.subheader("📷 Vault Upload")
-                                    # --- RECEIPT GUIDANCE DROPDOWN ---
             with st.expander("📝 Intelligence: Receipt Requirements & Best Practices"):
                 st.write("""
                 **WHAT TO SECURE:**

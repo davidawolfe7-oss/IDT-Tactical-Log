@@ -72,18 +72,40 @@ def main():
                     except Exception as e:
                         st.error(f"Access Denied: {str(e)}")
             
-            else: # Sign Up Mode
+else: # Sign Up Mode
                 st.info("Creating a new account will establish a unique Tactical Vault for your data.")
+                
+                # --- BETA DISCLAIMER WINDOW ---
+                with st.expander("📄 View Beta Terms of Service"):
+                    st.markdown("""
+                    **1. Purpose & Scope**  
+                    Tactical Asset Tracker (TAT) is currently in a Beta testing phase. This tool is designed to assist service members in tracking military logistics; however, it is not an official government or IRS application.
+                    
+                    **2. Data Security & Privacy**  
+                    Your data is stored in a private, encrypted database. While we strive to protect your "Intelligence" and "Vault" uploads, you acknowledge that this is a test environment and sensitive personal data (like full SSNs) should not be uploaded.
+                    
+                    **3. No Liability**  
+                    The developer is not responsible for any data loss, calculation errors, or issues arising from the use of this data for official tax or military reimbursement purposes. Always verify calculations against the current JTR (Joint Travel Regulations).
+                    
+                    **4. Termination**  
+                    As this is a beta test, the developer reserves the right to reset databases or modify features at any time.
+                    """)
+
+                # The Requirement Checkbox
+                tos_agree = st.checkbox("I have read the Beta Disclaimer and agree to proceed.")
+                
                 if st.form_submit_button("CREATE ACCOUNT"):
-                    try:
-                        local_db = get_db()
-                        res = local_db.auth.sign_up({"email": email, "password": pw})
-                        if res.user:
-                            st.success("Account created! You can now switch to Login.")
-                            st.balloons()
-                    except Exception as e:
-                        st.error(f"Registration Error: {str(e)}")
-        return
+                    if not tos_agree:
+                        st.warning("⚠️ High Command requires you to accept the terms before creating an account.")
+                    else:
+                        try:
+                            local_db = get_db()
+                            res = local_db.auth.sign_up({"email": email, "password": pw})
+                            if res.user:
+                                st.success("Account created! You can now switch to Login.")
+                                st.balloons()
+                        except Exception as e:
+                            st.error(f"Registration Error: {str(e)}")
     # COMMAND CENTER
     db = get_db()
     uid = st.session_state.user

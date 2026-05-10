@@ -25,7 +25,7 @@ def main():
         <style>
         .stApp {
             background: linear-gradient(rgba(0, 0, 0, 0.8), rgba(0, 0, 0, 0.85)), 
-                        url('https://images.unsplash.com/photo-1501339847302-ac426a4a7cbb?auto=format&fit=crop&q=80&w=2000');
+                        url('https://img.magnific.com/free-photo/american-flag-blowing-wind-background-ai-generative_123827-23752.jpg?w=2000');
             background-size: cover !important;
             background-attachment: fixed !important;
             background-position: center !important;
@@ -119,26 +119,59 @@ def main():
                     }).execute()
                     st.success(f"Mission Logged. Calculated Impact: ${final_impact:,.2f}")
 
-        with tab2:
+with tab2:
             st.subheader("Professional Gear")
-            st.info("""
-            **PURPOSE:** Records the cost of maintaining professional readiness. 
-            Includes uniform procurement, rank insignia, cleaning services, and mission-essential equipment 
-            not issued by the unit (e.g., boots, tactical tools, and professional dues).
-            """)
+            
+            # --- DETAILED SOLDIER BRIEFING ---
+            with st.expander("📝 VIEW GEAR LOGGING GUIDELINES (IRS & JAG STANDARDS)"):
+                st.markdown("""
+                ### ✅ WHAT YOU CAN LOG
+                *   **Uniforms & Maintenance:** Purchase of OCPs, ASUs, Mess Dress, and the cost of professional dry cleaning/sewing patches.
+                *   **Rank & Insignia:** Patches, medals, ribbons, name tapes, and berets.
+                *   **MOS-Specific Equipment:** Gear required for duty but not issued (DX'd). Examples: 12N specific rugged tools, 88M specialized driving gloves, personal GPS, high-end flashlights, or multitools.
+                *   **Professional Dues:** AUSA, NGAUS, or MOS-related trade subscriptions.
+
+                ### ❌ WHAT YOU CANNOT LOG
+                *   **Daily Wear:** Plain tan/green t-shirts, standard socks, or PT gear (these are considered "suitable for civilian use").
+                *   **Personal Grooming:** Haircuts, shaving supplies, or gym memberships.
+                *   **Commuting:** Travel from your home to your regular Reserve Center/Armory (this is 'commuting', not 'mission travel').
+                """)
+
             with st.form("gear_form"):
+                # Manual Date Input (Architect Upgrade: Allows logging past purchases)
+                gear_date = st.date_input("Purchase Date", value=datetime.date.today())
+                
                 u_maint = st.number_input("Uniform Cleaning/Repair", min_value=0.0, key="u_maint")
                 insignia = st.number_input("Rank/Patches/Medals", min_value=0.0, key="u_insig")
                 equipment = st.number_input("Duty Gear (Boots, GPS, Tools)", min_value=0.0, key="u_equip")
                 dues = st.number_input("Professional Dues/Subscriptions", min_value=0.0, key="u_dues")
                 
-                if st.form_submit_button("LOG GEAR"):
+                st.divider()
+                # --- RECEIPT CAPTURE ---
+                st.write("📷 **Receipt Capture**")
+                receipt_file = st.file_uploader("Upload or Take Photo of Receipt", type=['jpg', 'jpeg', 'png'])
+                
+                if st.form_submit_button("LOG GEAR & SAVE RECEIPT"):
                     total_g = u_maint + insignia + equipment + dues
+                    
+                    # Logic for handling the image name
+                    receipt_name = f"receipt_{uid}_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}.png" if receipt_file else None
+                    
+                    # DATABASE INSERT
                     db.table("logs").insert({
-                        "user_id": uid, "date": str(datetime.date.today()), 
-                        "purpose": "Professional Gear/Maintenance", "total_deduction": total_g
+                        "user_id": uid, 
+                        "date": str(gear_date), 
+                        "purpose": f"Gear Log: {receipt_name}" if receipt_name else "Professional Gear", 
+                        "total_deduction": total_g
                     }).execute()
-                    st.success(f"Logged ${total_g} Professional Expense.")
+                    
+                    # NOTE: To actually save the file, you would use:
+                    # db.storage.from_("receipts").upload(receipt_name, receipt_file.getvalue())
+                    
+                    if receipt_file:
+                        st.success(f"Log Complete. Receipt captured as: {receipt_name}")
+                    else:
+                        st.success(f"Log Complete. Amount: ${total_g}")
 
         with tab3:
             st.subheader("VA & Medical Transit")

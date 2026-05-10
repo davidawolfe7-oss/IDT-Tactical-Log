@@ -195,12 +195,26 @@ def main():
                         "purpose": "VA Medical/Charity Travel", "total_deduction": med_total
                     }).execute()
                     st.success(f"Medical Logged: ${med_total:,.2f}")
-
         with tab4:
             st.subheader("📷 Vault Upload")
+
+            # --- RECEIPT GUIDANCE DROPDOWN ---
+            with st.expander("📝 Intelligence: Receipt Requirements & Best Practices"):
+                st.write("""
+                **WHAT TO SECURE:**
+                *   **Mandatory:** All Lodging (Hotel/Airbnb) and any single expense **over $75**.
+                *   **Recommended:** Rental fuel, tolls, and uniform cleaning (even if under $75).
+                
+                **WHY SNAP A PHOTO?**
+                1.  **Audit Defense:** Digital copies are accepted by the IRS and provide proof of location.
+                2.  **Thermal Ink Decay:** Physical receipts fade over time; the Vault keeps them legible.
+                3.  **GPS Verification:** A fuel receipt in your duty city acts as a secondary 'boots on the ground' proof.
+                """)
+
             with st.form("vault_form", clear_on_submit=True):
+                st.write("### 🛰️ Secure Document to Vault")
                 v_date = st.date_input("Associated Date", value=datetime.date.today())
-                v_note = st.text_input("Short Description (e.g., Boots, OCP Cleaning)")
+                v_note = st.text_input("Short Description", placeholder="e.g., Rental Fuel - Mission X")
                 receipt_file = st.file_uploader("Upload Receipt Image", type=['jpg', 'jpeg', 'png'])
                 
                 if st.form_submit_button("SECURE TO VAULT"):
@@ -217,6 +231,8 @@ def main():
                             st.success("File secured in tactical vault.")
                         except Exception as e:
                             st.error(f"Upload Error: {str(e)}")
+                    else:
+                        st.warning("No file selected for upload.")
 
     elif nav == "Intelligence":
         st.header("📊 Tactical Report & Intelligence")

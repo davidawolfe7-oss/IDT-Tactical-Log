@@ -208,11 +208,50 @@ def main():
     elif nav == "Intelligence":
         st.header("📊 Tactical Report & Intelligence")
         res = db.table("logs").select("*").eq("user_id", uid).order("date", desc=True).execute()
+        
         if res.data:
             df = pd.DataFrame(res.data)
-            st.download_button(label="📥 EXPORT LOGS TO CSV", data=df.to_csv(index=False).encode('utf-8'), file_name=f"Tactical_Log_{datetime.date.today()}.csv")
-            st.dataframe(df[["date", "purpose", "total_deduction", "receipt_url"]], use_container_width=True)
+            
+            # --- NEW: GENERATE VIEWING LINKS ---
+            def get_view_link(path):
+                if path and "/" in str(path): # Check if it's a valid storage path
+                    try:
+                        # Generates a 60-minute secure link to view the file
+                        url_res = db.storage.from_("receipts").create_signed_url(path, 3600)
+                        return url_res['signedURL']
+                    except:
+                        return None
+                return None
 
+            # Add a 'View receipt' column using the signed URL
+            df['View Receipt'] = df['receipt_url'].apply(get_view_link)
+
+            # Reorder for clarity
+            display_df = df[["date", "purpose", "total_deduction", "View Receipt"]]
+            
+            st.download_button(
+                label="📥 EXPORT LOGS TO CSV", 
+                data=df.to_csv(index=False).encode('utf-8'), 
+                file_name=f"Tactical_Log_{datetime.date.today()}.csv"
+            )
+            
+            # Use st.column_config to make the URL a clickable link
+            st.data_editor(
+                display_df,
+                column_config={
+                    "View Receipt": st.column_config.LinkColumn(
+                        "Receipt Link",
+                        help="Secure link to view uploaded receipt (Expires in 1 hour)",
+                        validate=r"^https://.*",
+                        display_text="Open Image"
+                    ),
+                },
+                disabled=True,
+                use_container_width=True,
+                hide_index=True
+            )
+        else:
+            st.info("No tactical logs found in the database.")
     elif nav == "Bug Report":
         st.header("🐞 Beta Phase: Bug Reporting")
         st.info("Log glitches or feature suggestions here. This data is sent directly to development.")

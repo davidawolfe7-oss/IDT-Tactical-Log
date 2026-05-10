@@ -78,15 +78,11 @@ def main():
 
     if nav == "Mission Logistics":
         st.header("🪖 Comprehensive Military Logistics")
-        tab1, tab2, tab3 = st.tabs(["Duty Travel", "Professional Gear", "VA & Medical Transit"])
+        tab1, tab2, tab3, tab4 = st.tabs(["Duty Travel", "Professional Gear", "VA & Medical", "Vault Upload"])
 
         with tab1:
             st.subheader("Duty Travel")
-            st.info("""
-            **PURPOSE:** Track unreimbursed costs for official military travel (IDT, AT, or Mobilization). 
-            This module calculates the 'Mileage Gap'—the difference between actual vehicle wear-and-tear costs and 
-            the government reimbursement rate—alongside out-of-pocket lodging and subsistence.
-            """)
+            st.info("**PURPOSE:** Track unreimbursed costs for official military travel (IDT, AT, or Mobilization).")
             with st.form("travel_v3", clear_on_submit=True):
                 c1, c2 = st.columns(2)
                 with c1:
@@ -116,32 +112,17 @@ def main():
 
         with tab2:
             st.subheader("Professional Gear")
+            st.warning("⚠️ **IRS COMPLIANCE:** You MUST upload or maintain a physical receipt for any single purchase **over $75**.")
             
-            # --- ARCHITECT WARNING COMPONENT ---
-            st.warning("⚠️ **IRS COMPLIANCE:** You MUST upload or maintain a physical receipt for any single purchase **over $75**. Logs without proof for high-value items may be disqualified during an audit.")
-
-            st.info("""
-            **PURPOSE:** Records the cost of maintaining professional readiness. 
-            Includes uniform procurement, rank insignia, cleaning services, and mission-essential equipment 
-            not issued by the unit (e.g., boots, tactical tools, and professional dues).
-            """)
-
-            with st.expander("📝 VIEW GEAR LOGGING GUIDELINES (IRS & JAG STANDARDS)"):
+            with st.expander("📝 VIEW GEAR LOGGING GUIDELINES"):
                 st.markdown("""
-                ### ✅ WHAT YOU CAN LOG
-                *   **Uniforms & Maintenance:** OCPs, ASUs, Mess Dress, and sewing/cleaning.
-                *   **Rank & Insignia:** Patches, medals, ribbons, name tapes.
-                *   **MOS-Specific Gear:** Equipment required for duty but not issued (e.g., specialized driving gloves for 88M, rugged tools for 12N, personal GPS/Multitools).
-                *   **Dues:** AUSA, NGAUS, or MOS trade subscriptions.
-
-                ### ❌ WHAT YOU CANNOT LOG
-                *   **Daily Wear:** Plain t-shirts, standard socks, or PT gear (civilian-suitable).
-                *   **Grooming:** Haircuts, shaving supplies, or standard gym memberships.
+                *   **Uniforms & Maintenance:** OCPs, ASUs, cleaning.
+                *   **Rank & Insignia:** Patches, medals, name tapes.
+                *   **MOS-Specific Gear:** Gloves (88M), tools (12N), GPS, etc.
                 """)
 
             with st.form("gear_form", clear_on_submit=True):
                 gear_date = st.date_input("Purchase Date", value=datetime.date.today())
-                
                 c1, c2 = st.columns(2)
                 with c1:
                     u_maint = st.number_input("Uniform/Cleaning", min_value=0.0)
@@ -150,51 +131,22 @@ def main():
                     equipment = st.number_input("Duty Gear/Tools", min_value=0.0)
                     dues = st.number_input("Prof. Dues", min_value=0.0)
                 
-                st.divider()
-                st.write("📷 **RECEIPT CAPTURE**")
-                receipt_file = st.file_uploader("Take Photo or Upload", type=['jpg', 'jpeg', 'png'])
-                
-                if st.form_submit_button("DEPLOY LOG & UPLOAD IMAGE"):
+                if st.form_submit_button("LOG GEAR EXPENDITURE"):
                     total_g = u_maint + insignia + equipment + dues
-                    
                     if total_g > 0:
-                        timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
-                        file_path = f"{uid}/{timestamp}_receipt.png" if receipt_file else None
-                        
                         db.table("logs").insert({
-                            "user_id": uid, 
-                            "date": str(gear_date), 
-                            "purpose": "Professional Gear",
-                            "total_deduction": total_g,
-                            "receipt_url": file_path
+                            "user_id": uid, "date": str(gear_date), 
+                            "purpose": "Professional Gear", "total_deduction": total_g
                         }).execute()
-                        
-                        if receipt_file:
-                            try:
-                                db.storage.from_("receipts").upload(
-                                    path=file_path,
-                                    file=receipt_file.getvalue(),
-                                    file_options={"content-type": receipt_file.type}
-                                )
-                                st.success(f"Mission Success: Logged ${total_g} with receipt.")
-                            except Exception as e:
-                                st.error(f"Vault Upload Error: {str(e)}")
-                        else:
-                            st.success(f"Log Complete: ${total_g} (No receipt provided).")
+                        st.success(f"Logged ${total_g}. Use 'Vault Upload' to attach proof.")
                     else:
-                        st.warning("No values entered to log.")
+                        st.warning("No values entered.")
 
         with tab3:
             st.subheader("VA & Medical Transit")
-            st.info("""
-            **PURPOSE:** Specifically for tracking mileage to VA medical appointments or approved 
-            charitable volunteer missions. These miles are calculated at the medical/moving 
-            standard rate for tax documentation.
-            """)
             with st.form("med_form"):
                 med_miles = st.number_input("VA/Medical Appointment Miles", min_value=0.0)
                 charity_miles = st.number_input("Charitable/Volunteer Miles", min_value=0.0)
-                
                 if st.form_submit_button("LOG MEDICAL MILES"):
                     med_total = (med_miles * 0.22) + (charity_miles * 0.14)
                     db.table("logs").insert({
@@ -202,6 +154,37 @@ def main():
                         "purpose": "VA Medical/Charity Travel", "total_deduction": med_total
                     }).execute()
                     st.success(f"Medical Logged: ${med_total:,.2f}")
+
+        with tab4:
+            st.subheader("📷 Vault Upload")
+            st.write("Use this sector to archive receipts for the 'Tactical Asset Tracker' database.")
+            with st.form("vault_form", clear_on_submit=True):
+                v_date = st.date_input("Associated Date", value=datetime.date.today())
+                v_note = st.text_input("Short Description (e.g., Boots, OCP Cleaning)")
+                receipt_file = st.file_uploader("Upload Receipt Image", type=['jpg', 'jpeg', 'png'])
+                
+                if st.form_submit_button("SECURE TO VAULT"):
+                    if receipt_file:
+                        timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+                        file_path = f"{uid}/{timestamp}_{receipt_file.name}"
+                        try:
+                            # Upload to Storage
+                            db.storage.from_("receipts").upload(
+                                path=file_path,
+                                file=receipt_file.getvalue(),
+                                file_options={"content-type": receipt_file.type}
+                            )
+                            # Create a log entry specifically for the file reference
+                            db.table("logs").insert({
+                                "user_id": uid, "date": str(v_date), 
+                                "purpose": f"Receipt: {v_note}", "total_deduction": 0.0,
+                                "receipt_url": file_path
+                            }).execute()
+                            st.success("File secured in tactical vault.")
+                        except Exception as e:
+                            st.error(f"Upload Error: {str(e)}")
+                    else:
+                        st.warning("No file selected for upload.")
 
     elif nav == "Intelligence":
         st.header("📊 Tactical Report")

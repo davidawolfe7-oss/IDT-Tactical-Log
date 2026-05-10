@@ -80,27 +80,30 @@ def main():
         st.header("🪖 Comprehensive Military Logistics")
         tab1, tab2, tab3, tab4 = st.tabs(["Duty Travel", "Professional Gear", "VA & Medical Transit", "Vault Upload"])
 
-        with tab1:
+with tab1:
             st.subheader("Duty Travel")
             
-            # --- MISSION PURPOSE BLOCK ---
+            # --- MISSION PURPOSE BLOCK (Always Visible) ---
             st.info("""
             **PURPOSE:** Track unreimbursed costs for official military travel (IDT, AT, or Mobilization). 
             This module calculates the 'Mileage Gap'—the difference between actual vehicle wear-and-tear costs and 
-            the government reimbursement rate—alongside out-of-pocket lodging and subsistence.
+            the government reimbursement rate.
             """)
 
-            # --- TACTICAL GUIDANCE BLOCK ---
-            st.info("""
-            **STRATEGIC OVERVIEW: THE MILEAGE GAP**
-            *   **Actual Round-Trip Miles:** This is your true odometer reading (Home → Duty → Home).
-            *   **Miles Reimbursed by Gov:** This is the distance the government actually paid for on your travel voucher.
-            
-            **WHY THEY MIGHT DIFFER:**
-            1.  **The $750 Cap:** If your reimbursement was capped, your 'Paid Miles' will be lower than your 'Actual Miles.'
-            2.  **Partial Orders:** If you were authorized one-way travel pay but drove round-trip.
-            3.  **Standard Trip:** If the military paid your full distance, enter the **same number** in both boxes.
-            """)
+            # --- TACTICAL GUIDANCE (Now in a Dropdown) ---
+            with st.expander("📖 Strategic Overview: The Mileage Gap (Click to Expand)"):
+                st.write("""
+                **WHAT IS THE MILEAGE GAP?**
+                This represents the difference between your actual vehicle operating costs and what the military pays you.
+                
+                *   **Actual Round-Trip Miles:** This is your true odometer reading (Home → Duty → Home).
+                *   **Miles Reimbursed by Gov:** This is the distance the government actually paid for on your travel voucher.
+                
+                **WHY THEY MIGHT DIFFER:**
+                1.  **The $750 Cap:** If your reimbursement was capped, your 'Paid Miles' will be lower than your 'Actual Miles.'
+                2.  **Partial Orders:** If you were only authorized one-way travel pay but drove round-trip.
+                3.  **Standard Trip:** If the military paid your full distance, enter the **same number** in both boxes.
+                """)
             
             with st.form("travel_v3", clear_on_submit=True):
                 st.write("### 🛰️ Mission Transit Data")

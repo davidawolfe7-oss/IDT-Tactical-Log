@@ -170,20 +170,41 @@ def main():
 
         with tab4:
             st.subheader("📷 Vault Upload")
-            with st.expander("📝 Intelligence: Receipt Best Practices"):
-                st.write("Secure digital copies of all lodging and any expense >$75 to protect your audit trail.")
+            # --- RECEIPT GUIDANCE DROPDOWN ---
+            with st.expander("📝 Intelligence: Receipt Requirements & Best Practices"):
+                st.write("""
+                **WHAT TO SECURE:**
+                *   **Mandatory:** All Lodging (Hotel/Airbnb) and any single expense **over $75**.
+                *   **Recommended:** Rental fuel, tolls, and uniform cleaning (even if under $75).
+                
+                **WHY SNAP A PHOTO?**
+                1.  **Audit Defense:** Digital copies are accepted by the IRS and provide proof of location.
+                2.  **Thermal Ink Decay:** Physical receipts fade over time; the Vault keeps them legible.
+                3.  **GPS Verification:** A fuel receipt in your duty city acts as a secondary 'boots on the ground' proof.
+                """)
+
             with st.form("vault_form", clear_on_submit=True):
+                st.write("### 🛰️ Secure Document to Vault")
                 v_date = st.date_input("Associated Date", value=datetime.date.today())
-                v_note = st.text_input("Short Description", placeholder="e.g., Boots, Rental Fuel")
+                v_note = st.text_input("Short Description", placeholder="e.g., Rental Fuel - Mission X")
                 receipt_file = st.file_uploader("Upload Receipt Image", type=['jpg', 'jpeg', 'png'])
+                
                 if st.form_submit_button("SECURE TO VAULT"):
                     if receipt_file:
                         timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
                         file_path = f"{uid}/{timestamp}_{receipt_file.name}"
-                        db.storage.from_("receipts").upload(path=file_path, file=receipt_file.getvalue(), file_options={"content-type": receipt_file.type})
-                        db.table("logs").insert({"user_id": uid, "date": str(v_date), "purpose": f"Receipt Proof: {v_note}", "total_deduction": 0.0, "receipt_url": file_path}).execute()
-                        st.success("File secured.")
-
+                        try:
+                            db.storage.from_("receipts").upload(path=file_path, file=receipt_file.getvalue(), file_options={"content-type": receipt_file.type})
+                            db.table("logs").insert({
+                                "user_id": uid, "date": str(v_date), 
+                                "purpose": f"Receipt Proof: {v_note}", "total_deduction": 0.0,
+                                "receipt_url": file_path
+                            }).execute()
+                            st.success("File secured in tactical vault.")
+                        except Exception as e:
+                            st.error(f"Upload Error: {str(e)}")
+                    else:
+                        st.warning("No file selected for upload.")
     elif nav == "Intelligence":
         st.header("📊 Tactical Report & Intelligence")
         res = db.table("logs").select("*").eq("user_id", uid).order("date", desc=True).execute()

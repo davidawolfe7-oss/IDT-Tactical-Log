@@ -116,26 +116,8 @@ def main():
 
         with tab2:
             st.subheader("Professional Gear")
-            st.warning("⚠️ **IRS COMPLIANCE:** You MUST upload or maintain a physical receipt for any single purchase **over $75**. Logs without proof for high-value items may be disqualified during an audit.")
-
-            st.info("""
-            **PURPOSE:** Records the cost of maintaining professional readiness. 
-            Includes uniform procurement, rank insignia, cleaning services, and mission-essential equipment 
-            not issued by the unit (e.g., boots, tactical tools, and professional dues).
-            """)
-
-            with st.expander("📝 VIEW GEAR LOGGING GUIDELINES (IRS & JAG STANDARDS)"):
-                st.markdown("""
-                ### ✅ WHAT YOU CAN LOG
-                *   **Uniforms & Maintenance:** OCPs, ASUs, Mess Dress, and sewing/cleaning.
-                *   **Rank & Insignia:** Patches, medals, ribbons, name tapes.
-                *   **MOS-Specific Gear:** Equipment required for duty but not issued (e.g., specialized driving gloves for 88M, rugged tools for 12N, personal GPS/Multitools).
-                *   **Dues:** AUSA, NGAUS, or MOS trade subscriptions.
-
-                ### ❌ WHAT YOU CANNOT LOG
-                *   **Daily Wear:** Plain t-shirts, standard socks, or PT gear (civilian-suitable).
-                *   **Grooming:** Haircuts, shaving supplies, or standard gym memberships.
-                """)
+            st.warning("⚠️ **IRS COMPLIANCE:** You MUST upload or maintain a physical receipt for any single purchase **over $75**.")
+            st.info("**PURPOSE:** Records uniform procurement, rank insignia, cleaning, and mission gear (e.g. 88M/12N specific tools).")
 
             with st.form("gear_form", clear_on_submit=True):
                 gear_date = st.date_input("Purchase Date", value=datetime.date.today())
@@ -160,15 +142,9 @@ def main():
 
         with tab3:
             st.subheader("VA & Medical Transit")
-            st.info("""
-            **PURPOSE:** Specifically for tracking mileage to VA medical appointments or approved 
-            charitable volunteer missions. These miles are calculated at the medical/moving 
-            standard rate for tax documentation.
-            """)
             with st.form("med_form"):
                 med_miles = st.number_input("VA/Medical Appointment Miles", min_value=0.0)
                 charity_miles = st.number_input("Charitable/Volunteer Miles", min_value=0.0)
-                
                 if st.form_submit_button("LOG MEDICAL MILES"):
                     med_total = (med_miles * 0.22) + (charity_miles * 0.14)
                     db.table("logs").insert({
@@ -179,7 +155,6 @@ def main():
 
         with tab4:
             st.subheader("📷 Vault Upload")
-            st.write("Use this sector to archive receipts for the 'Tactical Asset Tracker' database.")
             with st.form("vault_form", clear_on_submit=True):
                 v_date = st.date_input("Associated Date", value=datetime.date.today())
                 v_note = st.text_input("Short Description (e.g., Boots, OCP Cleaning)")
@@ -190,30 +165,67 @@ def main():
                         timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
                         file_path = f"{uid}/{timestamp}_{receipt_file.name}"
                         try:
-                            db.storage.from_("receipts").upload(
-                                path=file_path,
-                                file=receipt_file.getvalue(),
-                                file_options={"content-type": receipt_file.type}
-                            )
+                            db.storage.from_("receipts").upload(path=file_path, file=receipt_file.getvalue(), file_options={"content-type": receipt_file.type})
                             db.table("logs").insert({
                                 "user_id": uid, "date": str(v_date), 
-                                "purpose": f"Receipt: {v_note}", "total_deduction": 0.0,
+                                "purpose": f"Receipt Proof: {v_note}", "total_deduction": 0.0,
                                 "receipt_url": file_path
                             }).execute()
                             st.success("File secured in tactical vault.")
                         except Exception as e:
                             st.error(f"Upload Error: {str(e)}")
-                    else:
-                        st.warning("No file selected for upload.")
 
     elif nav == "Intelligence":
-        st.header("📊 Tactical Report")
-        res = db.table("logs").select("*").eq("user_id", uid).execute()
+        st.header("📊 Tactical Report & Intelligence")
+        
+        # Pull Data
+        res = db.table("logs").select("*").eq("user_id", uid).order("date", desc=True).execute()
+        
         if res.data:
             df = pd.DataFrame(res.data)
-            st.table(df[["date", "purpose", "total_deduction"]])
+            
+            # --- 1. DOWNLOAD CENTER ---
+            csv = df.to_csv(index=False).encode('utf-8')
+            st.download_button(
+                label="📥 EXPORT LOGS TO CSV",
+                data=csv,
+                file_name=f"Tactical_Asset_Log_{datetime.date.today()}.csv",
+                mime='text/csv',
+            )
+            
+            st.divider()
+
+            # --- 2. LOG VIEWER & IMAGE RETRIEVAL ---
+            st.subheader("Active Mission Logs")
+            
+            # Formatted Dataframe for display
+            display_df = df[["date", "purpose", "total_deduction", "receipt_url"]].copy()
+            st.dataframe(display_df, use_container_width=True)
+
+            # Visual Evidence Sector
+            st.subheader("📷 Evidence Retrieval")
+            receipt_logs = df[df["receipt_url"].notna()]
+            
+            if not receipt_logs.empty:
+                selected_log = st.selectbox(
+                    "Select a mission log to view associated receipt:",
+                    options=receipt_logs.index,
+                    format_func=lambda x: f"{receipt_logs.loc[x, 'date']} - {receipt_logs.loc[x, 'purpose']}"
+                )
+                
+                if st.button("VIEW RECEIPT"):
+                    r_path = receipt_logs.loc[selected_log, 'receipt_url']
+                    try:
+                        # Generate a temporary signed URL (valid for 60 seconds)
+                        signed_res = db.storage.from_("receipts").create_signed_url(r_path, 60)
+                        st.image(signed_res['signedURL'], caption=f"Evidence for Log: {r_path}")
+                    except Exception as e:
+                        st.error(f"Intelligence Failure: Could not retrieve image. {str(e)}")
+            else:
+                st.info("No tactical evidence (receipts) found in the vault.")
+
         else:
-            st.info("No logs found.")
+            st.info("No mission logs detected. Operation pending.")
 
 if __name__ == "__main__":
     main()

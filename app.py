@@ -52,7 +52,6 @@ def main():
     if st.session_state.user is None:
         st.title("🪖 TACTICAL ASSET TRACKER")
         
-        # Choice for existing user or new tester
         auth_mode = st.radio("Select Action", ["Login", "Sign Up"], horizontal=True)
         
         with st.form("auth_form"):
@@ -71,7 +70,7 @@ def main():
                     except Exception as e:
                         st.error(f"Access Denied: {str(e)}")
             
-            else: # Sign Up Mode (Fixed Indentation)
+            else:
                 st.info("Creating a new account will establish a unique Tactical Vault for your data.")
                 with st.expander("📄 View Beta Terms of Service"):
                     st.markdown("""
@@ -99,12 +98,13 @@ def main():
                                 st.balloons()
                         except Exception as e:
                             st.error(f"Registration Error: {str(e)}")
-        return
-# --- COMMAND CENTER ---
+        return # Stop here if not logged in
+
+    # --- COMMAND CENTER (Now inside main() and properly gated) ---
     db = get_db()
     uid = st.session_state.user
     
-    # 1. NAVIGATION (Added 'Mission Briefing')
+    # 1. NAVIGATION
     nav = st.sidebar.radio("Sectors", ["Mission Briefing", "Mission Logistics", "Intelligence", "Bug Report"])
     
     if st.sidebar.button("LOGOUT"):
@@ -112,7 +112,7 @@ def main():
         st.session_state.user = None
         st.rerun()
 
-    # 2. SECTOR: MISSION BRIEFING (New Dedicated View)
+    # 2. SECTOR: MISSION BRIEFING
     if nav == "Mission Briefing":
         st.title("📂 MISSION BRIEFING: Tactical Tax Intel")
         st.info("Read this section to understand how to maximize your 2026 tax returns using this app.")
@@ -134,48 +134,22 @@ def main():
         *   **Gear:** Uniforms and MOS-specific gear are typically **Itemized Deductions**. Track them here so you are prepared if your total expenses exceed the 2026 Standard Deduction ($16,100 Single / $32,200 Joint).
         *   **VA Transit:** Medical miles contribute to your itemized medical expense totals (deductible once they exceed 7.5% of your AGI).
         """)
-        
         st.success("💡 **Ready to Start?** Switch to 'Mission Logistics' in the sidebar to log your first mission.")
 
     # 3. SECTOR: MISSION LOGISTICS
     elif nav == "Mission Logistics":
         st.header("🪖 Comprehensive Military Logistics")
         tab1, tab2, tab3, tab4 = st.tabs(["Duty Travel", "Professional Gear", "VA & Medical Transit", "Vault Upload"])
-        # ... (Your existing tab code here)
-
-    # 4. SECTOR: INTELLIGENCE
-    elif nav == "Intelligence":
-        # ... (Your existing Intelligence code here)
-
-    # 5. SECTOR: BUG REPORT
-    elif nav == "Bug Report":
-        # ... (Your existing Bug Report code here)
-
-
-    if nav == "Mission Logistics":
-        st.header("🪖 Comprehensive Military Logistics")
-        tab1, tab2, tab3, tab4 = st.tabs(["Duty Travel", "Professional Gear", "VA & Medical Transit", "Vault Upload"])
         
         with tab1:
             st.subheader("Duty Travel")
-            st.info("""
-            **PURPOSE:** Track unreimbursed costs for official military travel (IDT, AT, or Mobilization). 
-            This module calculates the 'Mileage Gap'—the difference between actual vehicle wear-and-tear costs and 
-            the government reimbursement rate.
-            """)
-            # --- TACTICAL GUIDANCE (Dropdown) ---
-            with st.expander("📖 Strategic Overview: The Mileage Gap (Click to Expand)"):
+            st.info("**PURPOSE:** Track unreimbursed costs for official military travel. Calculates the 'Mileage Gap'.")
+            
+            with st.expander("📖 Strategic Overview: The Mileage Gap"):
                 st.write("""
-                **WHAT IS THE MILEAGE GAP?**
-                This represents the difference between your actual vehicle operating costs and what the military pays you.
-                
-                *   **Actual Round-Trip Miles:** This is your true odometer reading (Home → Duty → Home).
-                *   **Miles Reimbursed by Gov:** This is the distance the government actually paid for on your travel voucher.
-                
-                **WHY THEY MIGHT DIFFER:**
-                1.  **The $750 Cap:** If your reimbursement was capped, your 'Paid Miles' will be lower than your 'Actual Miles.'
-                2.  **Partial Orders:** If you were only authorized one-way travel pay but drove round-trip.
-                3.  **Standard Trip:** If the military paid your full distance, enter the **same number** in both boxes.
+                **Actual Round-Trip Miles:** Your true odometer reading.
+                **Miles Reimbursed by Gov:** Distance paid on your travel voucher.
+                **The $750 Cap:** If your reimbursement was capped, this is why 'Paid Miles' might be lower.
                 """)
             
             with st.form("travel_v3", clear_on_submit=True):
@@ -203,26 +177,7 @@ def main():
 
         with tab2:
             st.subheader("Professional Gear")
-            st.warning("⚠️ **IRS COMPLIANCE:** You MUST upload or maintain a physical receipt for any single purchase **over $75**.")
-
-            st.info("""
-            **PURPOSE:** Records the cost of maintaining professional readiness. 
-            Includes uniform procurement, rank insignia, cleaning services, and mission-essential equipment 
-            not issued by the unit (e.g., boots, tactical tools, and professional dues).
-            """)
-
-            with st.expander("📝 VIEW GEAR LOGGING GUIDELINES (IRS & JAG STANDARDS)"):
-                st.markdown("""
-                ### ✅ WHAT YOU CAN LOG
-                *   **Uniforms & Maintenance:** OCPs, ASUs, Mess Dress, and sewing/cleaning.
-                *   **Rank & Insignia:** Patches, medals, ribbons, name tapes.
-                *   **MOS-Specific Gear:** Equipment required for duty but not issued (e.g., specialized driving gloves, personal GPS/Multitools).
-                *   **Dues:** AUSA, NGAUS, or MOS trade subscriptions.
-
-                ### ❌ WHAT YOU CANNOT LOG
-                *   **Daily Wear:** Plain t-shirts, standard socks, or PT gear (civilian-suitable).
-                *   **Grooming:** Haircuts, shaving supplies, or standard gym memberships.
-                """)
+            st.warning("⚠️ **IRS COMPLIANCE:** Receipt required for any single purchase over $75.")
             with st.form("gear_form", clear_on_submit=True):
                 gear_date = st.date_input("Purchase Date", value=datetime.date.today())
                 c1, c2 = st.columns(2)
@@ -239,11 +194,6 @@ def main():
 
         with tab3:
             st.subheader("VA & Medical Transit")
-            st.info("""
-            **PURPOSE:** Specifically for tracking mileage to VA medical appointments or approved 
-            charitable volunteer missions. These miles are calculated at the medical/moving 
-            standard rate for tax documentation.
-            """)
             with st.form("med_form"):
                 med_miles = st.number_input("VA/Medical Miles", min_value=0.0)
                 charity_miles = st.number_input("Charitable Miles", min_value=0.0)
@@ -254,19 +204,6 @@ def main():
 
         with tab4:
             st.subheader("📷 Vault Upload")
-                        # --- RECEIPT GUIDANCE DROPDOWN ---
-            with st.expander("📝 Intelligence: Receipt Requirements & Best Practices"):
-                st.write("""
-                **WHAT TO SECURE:**
-                *   **Mandatory:** All Lodging (Hotel/Airbnb) and any single expense **over $75**.
-                *   **Recommended:** Rental fuel, tolls, and uniform cleaning (even if under $75).
-                
-                **WHY SNAP A PHOTO?**
-                1.  **Audit Defense:** Digital copies are accepted by the IRS and provide proof of location.
-                2.  **Thermal Ink Decay:** Physical receipts fade over time; the Vault keeps them legible.
-                3.  **GPS Verification:** A fuel receipt in your duty city acts as a secondary 'boots on the ground' proof.
-                """)
-
             with st.form("vault_form", clear_on_submit=True):
                 v_date = st.date_input("Associated Date", value=datetime.date.today())
                 v_note = st.text_input("Short Description")
@@ -279,12 +216,13 @@ def main():
                         db.table("logs").insert({"user_id": uid, "date": str(v_date), "purpose": f"Receipt: {v_note}", "total_deduction": 0.0, "receipt_url": file_path}).execute()
                         st.success("File secured.")
 
+    # 4. SECTOR: INTELLIGENCE
     elif nav == "Intelligence":
         st.header("📊 Tactical Report & Intelligence")
         res = db.table("logs").select("*").eq("user_id", uid).order("date", desc=True).execute()
         if res.data:
             df = pd.DataFrame(res.data)
-            receipt_logs = df[df['receipt_url'].notna() & (df['receipt_url'] != "")]
+            receipt_logs = df[df['receipt_url'].notna() & (df['receipt_url'] != "") & (df['purpose'].str.contains("Receipt:"))]
             col1, col2 = st.columns([1, 1])
             with col1:
                 st.write("### Mission Logs")
@@ -298,6 +236,7 @@ def main():
                     url_res = db.storage.from_("receipts").create_signed_url(path, 60)
                     st.image(url_res['signedURL'], use_container_width=True)
 
+    # 5. SECTOR: BUG REPORT
     elif nav == "Bug Report":
         st.header("🐞 Bug Reporting")
         with st.form("bug_form", clear_on_submit=True):

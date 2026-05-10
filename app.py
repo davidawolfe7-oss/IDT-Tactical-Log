@@ -79,7 +79,6 @@ def main():
     if nav == "Mission Logistics":
         st.header("🪖 Comprehensive Military Logistics")
         tab1, tab2, tab3, tab4 = st.tabs(["Duty Travel", "Professional Gear", "VA & Medical Transit", "Vault Upload"])
-
         with tab1:
             st.subheader("Duty Travel")
             
@@ -115,6 +114,7 @@ def main():
                     st.divider()
                     lodging = st.number_input("Out-of-Pocket Lodging", min_value=0.0)
                 with c2:
+                    per_diem = st.number_input("Per Diem (Meals/Incidental)", min_value=0.0)
                     flight = st.number_input("Flight/Rail Cost", min_value=0.0)
                     rental = st.number_input("Rental Car Cost", min_value=0.0)
                     rent_fuel = st.number_input("Rental Fuel", min_value=0.0)
@@ -123,8 +123,9 @@ def main():
                     total_reimb = st.number_input("Total Cash Received (Voucher Total)", min_value=0.0)
 
                 if st.form_submit_button("LOG COMPLETE MISSION"):
+                    # Inclusion of per_diem in the total expenditure calculation
                     m_gap = (miles_act * 0.725) - (miles_paid * 0.225)
-                    total_exp = lodging + flight + rental + rent_fuel + airport_etc
+                    total_exp = lodging + per_diem + flight + rental + rent_fuel + airport_etc
                     final_impact = max(0.0, (m_gap + total_exp) - total_reimb)
                     
                     db.table("logs").insert({

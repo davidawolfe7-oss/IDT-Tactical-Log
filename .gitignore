@@ -3,3 +3,6 @@
 *.db-shm
 __pycache__/
 .streamlit/
+# Explicitly ignore secrets
+secrets.toml
+.env

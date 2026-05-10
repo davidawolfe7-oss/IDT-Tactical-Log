@@ -180,6 +180,11 @@ def main():
 
         with tab3:
             st.subheader("VA & Medical Transit")
+            st.info("""
+            **PURPOSE:** Specifically for tracking mileage to VA medical appointments or approved 
+            charitable volunteer missions. These miles are calculated at the medical/moving 
+            standard rate for tax documentation.
+            """)
             with st.form("med_form"):
                 med_miles = st.number_input("VA/Medical Appointment Miles", min_value=0.0)
                 charity_miles = st.number_input("Charitable/Volunteer Miles", min_value=0.0)

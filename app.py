@@ -46,26 +46,44 @@ def main():
     """, unsafe_allow_html=True)
 
     # AUTH GATE
+# AUTH GATE
     if "user" not in st.session_state or st.session_state.user is None:
         st.session_state.user = manager.get('tat_user_id')
 
     if st.session_state.user is None:
         st.title("🪖 TACTICAL ASSET TRACKER")
-        with st.form("login_form"):
+        
+        # Choice for existing user or new tester
+        auth_mode = st.radio("Select Action", ["Login", "Sign Up"], horizontal=True)
+        
+        with st.form("auth_form"):
             email = st.text_input("Email")
             pw = st.text_input("Access Key", type="password")
-            if st.form_submit_button("AUTHENTICATE"):
-                try:
-                    local_db = get_db()
-                    res = local_db.auth.sign_in_with_password({"email": email, "password": pw})
-                    if res.user:
-                        st.session_state.user = res.user.id
-                        manager.set('tat_user_id', res.user.id)
-                        st.rerun()
-                except Exception as e:
-                    st.error(f"Access Denied: {str(e)}")
+            
+            if auth_mode == "Login":
+                if st.form_submit_button("AUTHENTICATE"):
+                    try:
+                        local_db = get_db()
+                        res = local_db.auth.sign_in_with_password({"email": email, "password": pw})
+                        if res.user:
+                            st.session_state.user = res.user.id
+                            manager.set('tat_user_id', res.user.id)
+                            st.rerun()
+                    except Exception as e:
+                        st.error(f"Access Denied: {str(e)}")
+            
+            else: # Sign Up Mode
+                st.info("Creating a new account will establish a unique Tactical Vault for your data.")
+                if st.form_submit_button("CREATE ACCOUNT"):
+                    try:
+                        local_db = get_db()
+                        res = local_db.auth.sign_up({"email": email, "password": pw})
+                        if res.user:
+                            st.success("Account created! You can now switch to Login.")
+                            st.balloons()
+                    except Exception as e:
+                        st.error(f"Registration Error: {str(e)}")
         return
-
     # COMMAND CENTER
     db = get_db()
     uid = st.session_state.user

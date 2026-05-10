@@ -83,7 +83,7 @@ def main():
         
         with tab1:
             st.subheader("Duty Travel")
-             st.info("""
+            st.info("""
             **PURPOSE:** Track unreimbursed costs for official military travel (IDT, AT, or Mobilization). 
             This module calculates the 'Mileage Gap'—the difference between actual vehicle wear-and-tear costs and 
             the government reimbursement rate.
@@ -119,7 +119,7 @@ def main():
 
         with tab2:
             st.subheader("Professional Gear")
-            st.warning("⚠️ **IRS COMPLIANCE:** You MUST upload or maintain a physical receipt for any single purchase **over $75**. Logs without proof for high-value items may be disqualified during an audit.")
+            st.warning("⚠️ **IRS COMPLIANCE:** You MUST upload or maintain a physical receipt for any single purchase **over $75**.")
 
             st.info("""
             **PURPOSE:** Records the cost of maintaining professional readiness. 
@@ -132,7 +132,7 @@ def main():
                 ### ✅ WHAT YOU CAN LOG
                 *   **Uniforms & Maintenance:** OCPs, ASUs, Mess Dress, and sewing/cleaning.
                 *   **Rank & Insignia:** Patches, medals, ribbons, name tapes.
-                *   **MOS-Specific Gear:** Equipment required for duty but not issued (e.g., specialized driving gloves for 88M, rugged tools for 12N, personal GPS/Multitools).
+                *   **MOS-Specific Gear:** Equipment required for duty but not issued (e.g., specialized driving gloves, personal GPS/Multitools).
                 *   **Dues:** AUSA, NGAUS, or MOS trade subscriptions.
 
                 ### ❌ WHAT YOU CANNOT LOG
@@ -192,7 +192,6 @@ def main():
             st.download_button(label="📥 EXPORT LOGS TO CSV", data=df.to_csv(index=False).encode('utf-8'), file_name=f"Tactical_Log_{datetime.date.today()}.csv")
             st.dataframe(df[["date", "purpose", "total_deduction", "receipt_url"]], use_container_width=True)
 
-    # --- NEW BUG REPORT SECTOR ---
     elif nav == "Bug Report":
         st.header("🐞 Beta Phase: Bug Reporting")
         st.info("Log glitches or feature suggestions here. This data is sent directly to development.")
@@ -202,7 +201,6 @@ def main():
             bug_desc = st.text_area("Detailed Description", placeholder="Explain the glitch...")
             if st.form_submit_button("SUBMIT INTEL"):
                 if bug_desc:
-                    # Using 'receipt_url' column to store the bug details for simplicity
                     db.table("logs").insert({
                         "user_id": uid, 
                         "date": str(datetime.date.today()), 

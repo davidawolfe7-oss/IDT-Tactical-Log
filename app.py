@@ -114,34 +114,22 @@ def main():
                     }).execute()
                     st.success(f"Mission Logged. Calculated Impact: ${final_impact:,.2f}")
 
-with tab2:
+        with tab2:
             st.subheader("Professional Gear")
-            
-            # --- ARCHITECT WARNING COMPONENT (REINSTATED) ---
             st.warning("⚠️ **IRS COMPLIANCE:** You MUST upload or maintain a physical receipt for any single purchase **over $75**. Logs without proof for high-value items may be disqualified during an audit.")
-
+            
             st.info("""
-            **PURPOSE:** Records the cost of maintaining professional readiness. 
-            Includes uniform procurement, rank insignia, cleaning services, and mission-essential equipment 
-            not issued by the unit (e.g., boots, tactical tools, and professional dues).
+            **PURPOSE:** Records uniform procurement, rank insignia, cleaning services, and mission-essential equipment.
             """)
 
-            with st.expander("📝 VIEW GEAR LOGGING GUIDELINES (IRS & JAG STANDARDS)"):
+            with st.expander("📝 VIEW GEAR LOGGING GUIDELINES"):
                 st.markdown("""
-                ### ✅ WHAT YOU CAN LOG
-                *   **Uniforms & Maintenance:** OCPs, ASUs, Mess Dress, and sewing/cleaning.
-                *   **Rank & Insignia:** Patches, medals, ribbons, name tapes.
-                *   **MOS-Specific Gear:** Equipment required for duty but not issued (e.g., specialized driving gloves for 88M, rugged tools for 12N, personal GPS/Multitools).
-                *   **Dues:** AUSA, NGAUS, or MOS trade subscriptions.
-
-                ### ❌ WHAT YOU CANNOT LOG
-                *   **Daily Wear:** Plain t-shirts, standard socks, or PT gear (civilian-suitable).
-                *   **Grooming:** Haircuts, shaving supplies, or standard gym memberships.
+                *   **Uniforms:** OCPs, ASUs, and maintenance.
+                *   **Gear:** Specialized driving gloves (88M), tools (12N), or personal GPS.
                 """)
 
             with st.form("gear_form", clear_on_submit=True):
                 gear_date = st.date_input("Purchase Date", value=datetime.date.today())
-                
                 c1, c2 = st.columns(2)
                 with c1:
                     u_maint = st.number_input("Uniform/Cleaning", min_value=0.0)
@@ -156,22 +144,15 @@ with tab2:
                 
                 if st.form_submit_button("DEPLOY LOG & UPLOAD IMAGE"):
                     total_g = u_maint + insignia + equipment + dues
-                    
                     if total_g > 0:
-                        # 1. Generate Unique Path
                         timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
                         file_path = f"{uid}/{timestamp}_receipt.png" if receipt_file else None
                         
-                        # 2. Database Insert
                         db.table("logs").insert({
-                            "user_id": uid, 
-                            "date": str(gear_date), 
-                            "purpose": "Professional Gear",
-                            "total_deduction": total_g,
-                            "receipt_url": file_path
+                            "user_id": uid, "date": str(gear_date), "purpose": "Professional Gear",
+                            "total_deduction": total_g, "receipt_url": file_path
                         }).execute()
                         
-                        # 3. Storage Upload
                         if receipt_file:
                             try:
                                 db.storage.from_("receipts").upload(
@@ -183,17 +164,13 @@ with tab2:
                             except Exception as e:
                                 st.error(f"Vault Upload Error: {str(e)}")
                         else:
-                            st.success(f"Log Complete: ${total_g} (No receipt provided).")
+                            st.success(f"Log Complete: ${total_g}")
                     else:
-                        st.warning("No values entered to log.")
+                        st.warning("No values entered.")
 
         with tab3:
             st.subheader("VA & Medical Transit")
-            st.info("""
-            **PURPOSE:** Specifically for tracking mileage to VA medical appointments or approved 
-            charitable volunteer missions. These miles are calculated at the medical/moving 
-            standard rate for tax documentation.
-            """)
+            st.info("**PURPOSE:** Tracking mileage to VA medical appointments.")
             with st.form("med_form"):
                 med_miles = st.number_input("VA/Medical Appointment Miles", min_value=0.0)
                 charity_miles = st.number_input("Charitable/Volunteer Miles", min_value=0.0)

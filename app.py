@@ -76,13 +76,17 @@ def main():
         st.session_state.user = None
         st.rerun()
 
-    # --- ALL LOGIC BELOW MUST BE INDENTED TO STAY INSIDE main() ---
     if nav == "Mission Logistics":
         st.header("🪖 Comprehensive Military Logistics")
         tab1, tab2, tab3 = st.tabs(["Duty Travel", "Professional Gear", "VA & Medical Transit"])
 
         with tab1:
             st.subheader("Duty Travel")
+            st.info("""
+            **PURPOSE:** Track unreimbursed costs for official military travel (IDT, AT, or Mobilization). 
+            This module calculates the 'Mileage Gap'—the difference between actual vehicle wear-and-tear costs and 
+            the government reimbursement rate—alongside out-of-pocket lodging and subsistence.
+            """)
             with st.form("travel_v3", clear_on_submit=True):
                 c1, c2 = st.columns(2)
                 with c1:
@@ -108,21 +112,20 @@ def main():
                     final_impact = max(0.0, (m_gap + total_exp) - total_reimb)
                     
                     db.table("logs").insert({
-                        "user_id": uid,
-                        "date": str(t_date),
-                        "purpose": "Mission Travel",
-                        "miles": miles_act,
-                        "reimbursement": total_reimb,
-                        "lodging": lodging,
-                        "fuel_gas": rent_fuel,
-                        "tolls_parking": airport_etc,
-                        "total_deduction": final_impact,
-                        "travel_mode": "POV/Rental"
+                        "user_id": uid, "date": str(t_date), "purpose": "Mission Travel",
+                        "miles": miles_act, "reimbursement": total_reimb, "lodging": lodging,
+                        "fuel_gas": rent_fuel, "tolls_parking": airport_etc,
+                        "total_deduction": final_impact, "travel_mode": "POV/Rental"
                     }).execute()
                     st.success(f"Mission Logged. Calculated Impact: ${final_impact:,.2f}")
 
         with tab2:
             st.subheader("Professional Gear")
+            st.info("""
+            **PURPOSE:** Records the cost of maintaining professional readiness. 
+            Includes uniform procurement, rank insignia, cleaning services, and mission-essential equipment 
+            not issued by the unit (e.g., boots, tactical tools, and professional dues).
+            """)
             with st.form("gear_form"):
                 u_maint = st.number_input("Uniform Cleaning/Repair", min_value=0.0, key="u_maint")
                 insignia = st.number_input("Rank/Patches/Medals", min_value=0.0, key="u_insig")
@@ -132,15 +135,18 @@ def main():
                 if st.form_submit_button("LOG GEAR"):
                     total_g = u_maint + insignia + equipment + dues
                     db.table("logs").insert({
-                        "user_id": uid, 
-                        "date": str(datetime.date.today()), 
-                        "purpose": "Professional Gear/Maintenance", 
-                        "total_deduction": total_g
+                        "user_id": uid, "date": str(datetime.date.today()), 
+                        "purpose": "Professional Gear/Maintenance", "total_deduction": total_g
                     }).execute()
                     st.success(f"Logged ${total_g} Professional Expense.")
 
         with tab3:
             st.subheader("VA & Medical Transit")
+            st.info("""
+            **PURPOSE:** Specifically for tracking mileage to VA medical appointments or approved 
+            charitable volunteer missions. These miles are calculated at the medical/moving 
+            standard rate for tax documentation.
+            """)
             with st.form("med_form"):
                 med_miles = st.number_input("VA/Medical Appointment Miles", min_value=0.0, key="m_med")
                 charity_miles = st.number_input("Charitable/Volunteer Miles", min_value=0.0, key="m_char")
@@ -148,16 +154,15 @@ def main():
                 if st.form_submit_button("LOG MEDICAL MILES"):
                     med_total = (med_miles * 0.22) + (charity_miles * 0.14)
                     db.table("logs").insert({
-                        "user_id": uid, 
-                        "date": str(datetime.date.today()), 
-                        "purpose": "VA Medical/Charity Travel",
-                        "miles": med_miles + charity_miles,
+                        "user_id": uid, "date": str(datetime.date.today()), 
+                        "purpose": "VA Medical/Charity Travel", "miles": med_miles + charity_miles,
                         "total_deduction": med_total
                     }).execute()
                     st.success(f"Medical Logged: ${med_total:,.2f}")
 
     elif nav == "Intelligence":
         st.header("📊 Tactical Report")
+        st.write("Review all logged missions and expenses synced with the central database.")
         try:
             res = db.table("logs").select(
                 "date", "purpose", "miles", "total_deduction", "reimbursement"
@@ -172,6 +177,5 @@ def main():
         except Exception as e:
             st.error(f"Intelligence Sector Error: {str(e)}")
 
-# --- FINAL BOOTSTRAP ---
 if __name__ == "__main__":
     main()

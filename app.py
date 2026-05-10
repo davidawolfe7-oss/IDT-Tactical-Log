@@ -80,19 +80,35 @@ def main():
         st.header("🪖 Comprehensive Military Logistics")
         tab1, tab2, tab3, tab4 = st.tabs(["Duty Travel", "Professional Gear", "VA & Medical Transit", "Vault Upload"])
 
-        with tab1:
+with tab1:
             st.subheader("Duty Travel")
+            
+            # --- MISSION PURPOSE BLOCK ---
             st.info("""
             **PURPOSE:** Track unreimbursed costs for official military travel (IDT, AT, or Mobilization). 
             This module calculates the 'Mileage Gap'—the difference between actual vehicle wear-and-tear costs and 
             the government reimbursement rate—alongside out-of-pocket lodging and subsistence.
             """)
+
+            # --- TACTICAL GUIDANCE BLOCK ---
+            st.info("""
+            **STRATEGIC OVERVIEW: THE MILEAGE GAP**
+            *   **Actual Round-Trip Miles:** This is your true odometer reading (Home → Duty → Home).
+            *   **Miles Reimbursed by Gov:** This is the distance the government actually paid for on your travel voucher.
+            
+            **WHY THEY MIGHT DIFFER:**
+            1.  **The $750 Cap:** If your reimbursement was capped, your 'Paid Miles' will be lower than your 'Actual Miles.'
+            2.  **Partial Orders:** If you were authorized one-way travel pay but drove round-trip.
+            3.  **Standard Trip:** If the military paid your full distance, enter the **same number** in both boxes.
+            """)
+            
             with st.form("travel_v3", clear_on_submit=True):
+                st.write("### 🛰️ Mission Transit Data")
                 c1, c2 = st.columns(2)
                 with c1:
                     t_date = st.date_input("Travel Date", key="date_id")
-                    miles_act = st.number_input("Actual Round-Trip Miles (POV)", min_value=0.0)
-                    miles_paid = st.number_input("Miles Reimbursed by Gov", min_value=0.0)
+                    miles_act = st.number_input("Actual Round-Trip Miles (Odometer)", min_value=0.0, help="Total physical miles driven.")
+                    miles_paid = st.number_input("Miles Reimbursed by Gov", min_value=0.0, help="Miles listed on your paid travel voucher.")
                     st.divider()
                     lodging = st.number_input("Out-of-Pocket Lodging", min_value=0.0)
                 with c2:
@@ -101,7 +117,7 @@ def main():
                     rent_fuel = st.number_input("Rental Fuel", min_value=0.0)
                     airport_etc = st.number_input("Parking/Taxis/Baggage", min_value=0.0)
                     st.divider()
-                    total_reimb = st.number_input("Total Cash Received", min_value=0.0)
+                    total_reimb = st.number_input("Total Cash Received (Voucher Total)", min_value=0.0)
 
                 if st.form_submit_button("LOG COMPLETE MISSION"):
                     m_gap = (miles_act * 0.725) - (miles_paid * 0.225)

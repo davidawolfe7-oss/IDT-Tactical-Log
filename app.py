@@ -78,11 +78,15 @@ def main():
 
     if nav == "Mission Logistics":
         st.header("🪖 Comprehensive Military Logistics")
-        tab1, tab2, tab3, tab4 = st.tabs(["Duty Travel", "Professional Gear", "VA & Medical", "Vault Upload"])
+        tab1, tab2, tab3, tab4 = st.tabs(["Duty Travel", "Professional Gear", "VA & Medical Transit", "Vault Upload"])
 
         with tab1:
             st.subheader("Duty Travel")
-            st.info("**PURPOSE:** Track unreimbursed costs for official military travel (IDT, AT, or Mobilization).")
+            st.info("""
+            **PURPOSE:** Track unreimbursed costs for official military travel (IDT, AT, or Mobilization). 
+            This module calculates the 'Mileage Gap'—the difference between actual vehicle wear-and-tear costs and 
+            the government reimbursement rate—alongside out-of-pocket lodging and subsistence.
+            """)
             with st.form("travel_v3", clear_on_submit=True):
                 c1, c2 = st.columns(2)
                 with c1:
@@ -112,13 +116,25 @@ def main():
 
         with tab2:
             st.subheader("Professional Gear")
-            st.warning("⚠️ **IRS COMPLIANCE:** You MUST upload or maintain a physical receipt for any single purchase **over $75**.")
-            
-            with st.expander("📝 VIEW GEAR LOGGING GUIDELINES"):
+            st.warning("⚠️ **IRS COMPLIANCE:** You MUST upload or maintain a physical receipt for any single purchase **over $75**. Logs without proof for high-value items may be disqualified during an audit.")
+
+            st.info("""
+            **PURPOSE:** Records the cost of maintaining professional readiness. 
+            Includes uniform procurement, rank insignia, cleaning services, and mission-essential equipment 
+            not issued by the unit (e.g., boots, tactical tools, and professional dues).
+            """)
+
+            with st.expander("📝 VIEW GEAR LOGGING GUIDELINES (IRS & JAG STANDARDS)"):
                 st.markdown("""
-                *   **Uniforms & Maintenance:** OCPs, ASUs, cleaning.
-                *   **Rank & Insignia:** Patches, medals, name tapes.
-                *   **MOS-Specific Gear:** Gloves (88M), tools (12N), GPS, etc.
+                ### ✅ WHAT YOU CAN LOG
+                *   **Uniforms & Maintenance:** OCPs, ASUs, Mess Dress, and sewing/cleaning.
+                *   **Rank & Insignia:** Patches, medals, ribbons, name tapes.
+                *   **MOS-Specific Gear:** Equipment required for duty but not issued (e.g., specialized driving gloves for 88M, rugged tools for 12N, personal GPS/Multitools).
+                *   **Dues:** AUSA, NGAUS, or MOS trade subscriptions.
+
+                ### ❌ WHAT YOU CANNOT LOG
+                *   **Daily Wear:** Plain t-shirts, standard socks, or PT gear (civilian-suitable).
+                *   **Grooming:** Haircuts, shaving supplies, or standard gym memberships.
                 """)
 
             with st.form("gear_form", clear_on_submit=True):
@@ -144,9 +160,15 @@ def main():
 
         with tab3:
             st.subheader("VA & Medical Transit")
+            st.info("""
+            **PURPOSE:** Specifically for tracking mileage to VA medical appointments or approved 
+            charitable volunteer missions. These miles are calculated at the medical/moving 
+            standard rate for tax documentation.
+            """)
             with st.form("med_form"):
                 med_miles = st.number_input("VA/Medical Appointment Miles", min_value=0.0)
                 charity_miles = st.number_input("Charitable/Volunteer Miles", min_value=0.0)
+                
                 if st.form_submit_button("LOG MEDICAL MILES"):
                     med_total = (med_miles * 0.22) + (charity_miles * 0.14)
                     db.table("logs").insert({
@@ -168,13 +190,11 @@ def main():
                         timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
                         file_path = f"{uid}/{timestamp}_{receipt_file.name}"
                         try:
-                            # Upload to Storage
                             db.storage.from_("receipts").upload(
                                 path=file_path,
                                 file=receipt_file.getvalue(),
                                 file_options={"content-type": receipt_file.type}
                             )
-                            # Create a log entry specifically for the file reference
                             db.table("logs").insert({
                                 "user_id": uid, "date": str(v_date), 
                                 "purpose": f"Receipt: {v_note}", "total_deduction": 0.0,

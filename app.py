@@ -80,7 +80,7 @@ def main():
         st.header("🪖 Comprehensive Military Logistics")
         tab1, tab2, tab3, tab4 = st.tabs(["Duty Travel", "Professional Gear", "VA & Medical Transit", "Vault Upload"])
 
-with tab1:
+        with tab1:
             st.subheader("Duty Travel")
             
             # --- MISSION PURPOSE BLOCK ---
@@ -133,7 +133,7 @@ with tab1:
         with tab2:
             st.subheader("Professional Gear")
             st.warning("⚠️ **IRS COMPLIANCE:** You MUST upload or maintain a physical receipt for any single purchase **over $75**.")
-            st.info("**PURPOSE:** Records uniform procurement, rank insignia, cleaning, and mission gear (e.g. 88M/12N specific tools).")
+            st.info("**PURPOSE:** Records uniform procurement, rank insignia, cleaning, and mission gear.")
 
             with st.form("gear_form", clear_on_submit=True):
                 gear_date = st.date_input("Purchase Date", value=datetime.date.today())
@@ -193,55 +193,27 @@ with tab1:
 
     elif nav == "Intelligence":
         st.header("📊 Tactical Report & Intelligence")
-        
-        # Pull Data
         res = db.table("logs").select("*").eq("user_id", uid).order("date", desc=True).execute()
         
         if res.data:
             df = pd.DataFrame(res.data)
-            
-            # --- 1. DOWNLOAD CENTER ---
             csv = df.to_csv(index=False).encode('utf-8')
-            st.download_button(
-                label="📥 EXPORT LOGS TO CSV",
-                data=csv,
-                file_name=f"Tactical_Asset_Log_{datetime.date.today()}.csv",
-                mime='text/csv',
-            )
-            
+            st.download_button(label="📥 EXPORT LOGS TO CSV", data=csv, file_name=f"Tactical_Asset_Log_{datetime.date.today()}.csv", mime='text/csv')
             st.divider()
-
-            # --- 2. LOG VIEWER & IMAGE RETRIEVAL ---
             st.subheader("Active Mission Logs")
-            
-            # Formatted Dataframe for display
-            display_df = df[["date", "purpose", "total_deduction", "receipt_url"]].copy()
-            st.dataframe(display_df, use_container_width=True)
+            st.dataframe(df[["date", "purpose", "total_deduction", "receipt_url"]], use_container_width=True)
 
-            # Visual Evidence Sector
             st.subheader("📷 Evidence Retrieval")
             receipt_logs = df[df["receipt_url"].notna()]
-            
             if not receipt_logs.empty:
-                selected_log = st.selectbox(
-                    "Select a mission log to view associated receipt:",
-                    options=receipt_logs.index,
-                    format_func=lambda x: f"{receipt_logs.loc[x, 'date']} - {receipt_logs.loc[x, 'purpose']}"
-                )
-                
+                selected_log = st.selectbox("Select log to view receipt:", options=receipt_logs.index, format_func=lambda x: f"{receipt_logs.loc[x, 'date']} - {receipt_logs.loc[x, 'purpose']}")
                 if st.button("VIEW RECEIPT"):
                     r_path = receipt_logs.loc[selected_log, 'receipt_url']
                     try:
-                        # Generate a temporary signed URL (valid for 60 seconds)
                         signed_res = db.storage.from_("receipts").create_signed_url(r_path, 60)
-                        st.image(signed_res['signedURL'], caption=f"Evidence for Log: {r_path}")
+                        st.image(signed_res['signedURL'], caption=f"Evidence: {r_path}")
                     except Exception as e:
-                        st.error(f"Intelligence Failure: Could not retrieve image. {str(e)}")
-            else:
-                st.info("No tactical evidence (receipts) found in the vault.")
-
-        else:
-            st.info("No mission logs detected. Operation pending.")
+                        st.error(f"Intelligence Failure: {str(e)}")
 
 if __name__ == "__main__":
     main()

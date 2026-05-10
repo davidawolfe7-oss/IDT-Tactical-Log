@@ -105,15 +105,27 @@ def main():
                     total_reimb = st.number_input("Total Cash Received", min_value=0.0, key="cash")
 
                 if st.form_submit_button("LOG COMPLETE MISSION"):
-                    m_gap = (miles_act * 0.725) - (miles_paid * 0.225)
-                    total_exp = lodging + flight + rental + rent_fuel + laundry + airport_etc + (meals_days * 59.0)
-                    final_impact = max(0.0, (m_gap + total_exp) - total_reimb)
-                    db.table("logs").insert({
-                        "user_id": st.session_state.user, 
-                        "date": str(t_date), 
-                        "category": "Travel", "deduction": final_impact
-                    }).execute()
-                    st.success(f"Mission Logged. Calculated Impact: ${final_impact:,.2f}")
+                    try:
+                        m_gap = (miles_act * 0.725) - (miles_paid * 0.225)
+                        total_exp = lodging + flight + rental + rent_fuel + laundry + airport_etc + (meals_days * 59.0)
+                        final_impact = max(0.0, (m_gap + total_exp) - total_reimb)
+                        
+                        # DIAGNOSTIC CHECK
+                        payload = {
+                            "user_id": st.session_state.user, 
+                            "date": str(t_date), 
+                            "category": "Travel", 
+                            "deduction": final_impact
+                        }
+                        
+                        # This line tries the insert
+                        db.table("logs").insert(payload).execute()
+                        st.success(f"Mission Logged. Calculated Impact: ${final_impact:,.2f}")
+                        
+                    except Exception as e:
+                        # THIS WILL SHOW THE REAL ERROR ON YOUR SCREEN
+                        st.error(f"DATABASE REJECTED ENTRY: {str(e)}")
+                        st.info(f"DEBUG DATA: {payload}")
 
         with tab2:
             st.subheader("Professional Gear")

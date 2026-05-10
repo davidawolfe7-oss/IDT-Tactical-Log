@@ -124,8 +124,7 @@ def main():
         #### **📡 The "Above-the-Line" Travel Win**
         **Crucial Rule:** If you travel **more than 100 miles** from home for military duty (IDT, AT, etc.), the IRS allows you to deduct unreimbursed travel expenses as an **Adjustment to Income**.
         *   **Standard Deduction Friendly:** You claim this *even if you do not itemize*.
-        *   **The Mileage Gap:** The gov often pays a lower rate (approx. $0.225) while the IRS allows a much higher business rate ($0.725). The app calculates this 'Gap' for you automatically.
-        
+        *   **The Mileage Gap:** The gov often pays a lower rate (approx. 0.225) while the IRS allows a much higher business rate (0.725). the app calculates this 'Gap' for you automatically.
         #### **🛡️ The Tactical Vault (Audit Defense)**
         *   **Verification:** The IRS requires proof for lodging and any expense over $75. 
         *   **The Vault:** Snap photos of receipts immediately. Digital copies are audit-ready and won't fade like thermal paper.
@@ -143,7 +142,25 @@ def main():
         
         with tab1:
             st.subheader("Duty Travel")
-            st.info("**PURPOSE:** Track unreimbursed costs for official military travel. Calculates the 'Mileage Gap'.")
+            st.info("""
+            **PURPOSE:** Track unreimbursed costs for official military travel (IDT, AT, or Mobilization). 
+            This module calculates the 'Mileage Gap'—the difference between actual vehicle wear-and-tear costs and 
+            the government reimbursement rate.
+            """)
+            # --- TACTICAL GUIDANCE (Dropdown) ---
+            with st.expander("📖 Strategic Overview: The Mileage Gap (Click to Expand)"):
+                st.write("""
+                **WHAT IS THE MILEAGE GAP?**
+                This represents the difference between your actual vehicle operating costs and what the military pays you.
+                
+                *   **Actual Round-Trip Miles:** This is your true odometer reading (Home → Duty → Home).
+                *   **Miles Reimbursed by Gov:** This is the distance the government actually paid for on your travel voucher.
+                
+                **WHY THEY MIGHT DIFFER:**
+                1.  **The $750 Cap:** If your reimbursement was capped, your 'Paid Miles' will be lower than your 'Actual Miles.'
+                2.  **Partial Orders:** If you were only authorized one-way travel pay but drove round-trip.
+                3.  **Standard Trip:** If the military paid your full distance, enter the **same number** in both boxes.
+                """)
             
             with st.expander("📖 Strategic Overview: The Mileage Gap"):
                 st.write("""
@@ -177,7 +194,27 @@ def main():
 
         with tab2:
             st.subheader("Professional Gear")
-            st.warning("⚠️ **IRS COMPLIANCE:** Receipt required for any single purchase over $75.")
+             st.warning("⚠️ **IRS COMPLIANCE:** You MUST upload or maintain a physical receipt for any single purchase **over $75**.")
+
+            st.info("""
+            **PURPOSE:** Records the cost of maintaining professional readiness. 
+            Includes uniform procurement, rank insignia, cleaning services, and mission-essential equipment 
+            not issued by the unit (e.g., boots, tactical tools, and professional dues).
+            """)
+
+            with st.expander("📝 VIEW GEAR LOGGING GUIDELINES (IRS & JAG STANDARDS)"):
+                st.markdown("""
+                ### ✅ WHAT YOU CAN LOG
+                *   **Uniforms & Maintenance:** OCPs, ASUs, Mess Dress, and sewing/cleaning.
+                *   **Rank & Insignia:** Patches, medals, ribbons, name tapes.
+                *   **MOS-Specific Gear:** Equipment required for duty but not issued (e.g., specialized driving gloves, personal GPS/Multitools).
+                *   **Dues:** AUSA, NGAUS, or MOS trade subscriptions.
+
+                ### ❌ WHAT YOU CANNOT LOG
+                *   **Daily Wear:** Plain t-shirts, standard socks, or PT gear (civilian-suitable).
+                *   **Grooming:** Haircuts, shaving supplies, or standard gym memberships.
+                """)
+
             with st.form("gear_form", clear_on_submit=True):
                 gear_date = st.date_input("Purchase Date", value=datetime.date.today())
                 c1, c2 = st.columns(2)
@@ -194,6 +231,11 @@ def main():
 
         with tab3:
             st.subheader("VA & Medical Transit")
+            st.info("""
+            **PURPOSE:** Specifically for tracking mileage to VA medical appointments or approved 
+            charitable volunteer missions. These miles are calculated at the medical/moving 
+            standard rate for tax documentation.
+            """)
             with st.form("med_form"):
                 med_miles = st.number_input("VA/Medical Miles", min_value=0.0)
                 charity_miles = st.number_input("Charitable Miles", min_value=0.0)
@@ -204,6 +246,19 @@ def main():
 
         with tab4:
             st.subheader("📷 Vault Upload")
+                                    # --- RECEIPT GUIDANCE DROPDOWN ---
+            with st.expander("📝 Intelligence: Receipt Requirements & Best Practices"):
+                st.write("""
+                **WHAT TO SECURE:**
+                *   **Mandatory:** All Lodging (Hotel/Airbnb) and any single expense **over $75**.
+                *   **Recommended:** Rental fuel, tolls, and uniform cleaning (even if under $75).
+                
+                **WHY SNAP A PHOTO?**
+                1.  **Audit Defense:** Digital copies are accepted by the IRS and provide proof of location.
+                2.  **Thermal Ink Decay:** Physical receipts fade over time; the Vault keeps them legible.
+                3.  **GPS Verification:** A fuel receipt in your duty city acts as a secondary 'boots on the ground' proof.
+                """)
+
             with st.form("vault_form", clear_on_submit=True):
                 v_date = st.date_input("Associated Date", value=datetime.date.today())
                 v_note = st.text_input("Short Description")

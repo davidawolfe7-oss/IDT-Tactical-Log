@@ -164,11 +164,29 @@ if nav == "Mission Logistics":
                     }).execute()
                     st.success(f"Medical Logged: ${med_total:,.2f}")
 
-    elif nav == "Intelligence":
+   elif nav == "Intelligence":
         st.header("📊 Tactical Report")
-        res = db.table("logs").select("*").eq("user_id", uid).execute()
-        if res.data:
-            st.table(pd.DataFrame(res.data))
+        
+        # We fetch only the columns that actually exist in your DB
+        try:
+            res = db.table("logs").select(
+                "date", "purpose", "miles", "total_deduction", "reimbursement"
+            ).eq("user_id", uid).execute()
+            
+            if res.data:
+                # Convert to a clean DataFrame for display
+                df = pd.DataFrame(res.data)
+                
+                # Rename columns for the user's view (Optional, makes it look cleaner)
+                df.columns = ["Date", "Mission/Purpose", "Miles", "Tax Impact", "Reimbursed"]
+                
+                st.table(df)
+            else:
+                st.info("No mission logs found in the database.")
+                
+        except Exception as e:
+            st.error(f"Intelligence Sector Error: {str(e)}")
+            st.info("Check if your Supabase column names match: date, purpose, miles, total_deduction, reimbursement")
 
 if __name__ == "__main__":
     main()

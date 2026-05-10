@@ -21,7 +21,6 @@ def main():
     manager = get_manager()
     
     # --- NIGHT OPS THEME UPGRADE ---
-    # Architect Note: Swapped to a stable Freepik CDN link for the flag background
     st.markdown("""
         <style>
         .stApp {
@@ -83,7 +82,11 @@ def main():
 
         with tab1:
             st.subheader("Duty Travel")
-            st.info("**PURPOSE:** Track unreimbursed costs for official military travel. Calculates the 'Mileage Gap' vs Gov rates.")
+            st.info("""
+            **PURPOSE:** Track unreimbursed costs for official military travel (IDT, AT, or Mobilization). 
+            This module calculates the 'Mileage Gap'—the difference between actual vehicle wear-and-tear costs and 
+            the government reimbursement rate—alongside out-of-pocket lodging and subsistence.
+            """)
             with st.form("travel_v3", clear_on_submit=True):
                 c1, c2 = st.columns(2)
                 with c1:
@@ -111,20 +114,28 @@ def main():
                     }).execute()
                     st.success(f"Mission Logged. Calculated Impact: ${final_impact:,.2f}")
 
-        # --- TAB 2: FIXED INDENTATION ---
         with tab2:
             st.subheader("Professional Gear")
+            st.info("""
+            **PURPOSE:** Records the cost of maintaining professional readiness. 
+            Includes uniform procurement, rank insignia, cleaning services, and mission-essential equipment 
+            not issued by the unit (e.g., boots, tactical tools, and professional dues).
+            """)
+            
+            # Architect Warning Component
+            st.warning("⚠️ **IRS COMPLIANCE:** You MUST upload or maintain a physical receipt for any single purchase **over $75**. Logs without proof for high-value items may be disqualified during an audit.")
+
             with st.expander("📝 VIEW GEAR LOGGING GUIDELINES (IRS & JAG STANDARDS)"):
                 st.markdown("""
                 ### ✅ WHAT YOU CAN LOG
-                *   **Uniforms:** OCPs, ASUs, Mess Dress, and sewing/cleaning.
-                *   **Rank:** Patches, medals, ribbons, name tapes.
-                *   **MOS-Specific:** Gear required for duty but not issued (e.g., 88M driving gloves, 12N rugged tools, personal GPS/Multitools).
+                *   **Uniforms & Maintenance:** OCPs, ASUs, Mess Dress, and sewing/cleaning.
+                *   **Rank & Insignia:** Patches, medals, ribbons, name tapes.
+                *   **MOS-Specific Gear:** Equipment required for duty but not issued (e.g., specialized driving gloves for 88M, rugged tools for 12N, personal GPS/Multitools).
                 *   **Dues:** AUSA, NGAUS, or MOS trade subscriptions.
 
                 ### ❌ WHAT YOU CANNOT LOG
-                *   **Daily Wear:** Plain t-shirts, standard socks, or PT gear.
-                *   **Grooming:** Haircuts or shaving supplies.
+                *   **Daily Wear:** Plain t-shirts, standard socks, or PT gear (civilian-suitable).
+                *   **Grooming:** Haircuts, shaving supplies, or standard gym memberships.
                 """)
 
             with st.form("gear_form"):
@@ -140,7 +151,7 @@ def main():
                 
                 if st.form_submit_button("LOG GEAR & SAVE RECEIPT"):
                     total_g = u_maint + insignia + equipment + dues
-                    r_name = f"receipt_{uid}_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}.png" if receipt_file else "No Receipt"
+                    r_name = f"receipt_{uid}_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}.png" if receipt_file else "No Receipt Uploaded"
                     
                     db.table("logs").insert({
                         "user_id": uid, "date": str(gear_date), 
@@ -148,20 +159,26 @@ def main():
                     }).execute()
                     
                     if receipt_file:
-                        # Logic to save to storage would go here
                         st.success(f"Log Saved with Receipt: {r_name}")
                     else:
                         st.success(f"Log Complete. Total: ${total_g}")
 
         with tab3:
             st.subheader("VA & Medical Transit")
+            st.info("""
+            **PURPOSE:** Specifically for tracking mileage to VA medical appointments or approved 
+            charitable volunteer missions. These miles are calculated at the medical/moving 
+            standard rate for tax documentation.
+            """)
             with st.form("med_form"):
                 med_miles = st.number_input("VA/Medical Appointment Miles", min_value=0.0)
+                charity_miles = st.number_input("Charitable/Volunteer Miles", min_value=0.0)
+                
                 if st.form_submit_button("LOG MEDICAL MILES"):
-                    med_total = (med_miles * 0.22)
+                    med_total = (med_miles * 0.22) + (charity_miles * 0.14)
                     db.table("logs").insert({
                         "user_id": uid, "date": str(datetime.date.today()), 
-                        "purpose": "VA Medical Travel", "total_deduction": med_total
+                        "purpose": "VA Medical/Charity Travel", "total_deduction": med_total
                     }).execute()
                     st.success(f"Medical Logged: ${med_total:,.2f}")
 
@@ -169,7 +186,8 @@ def main():
         st.header("📊 Tactical Report")
         res = db.table("logs").select("*").eq("user_id", uid).execute()
         if res.data:
-            st.table(pd.DataFrame(res.data)[["date", "purpose", "total_deduction"]])
+            df = pd.DataFrame(res.data)
+            st.table(df[["date", "purpose", "total_deduction"]])
         else:
             st.info("No logs found.")
 

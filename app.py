@@ -13,7 +13,6 @@ def get_db():
 
 def get_manager():
     if "cookie_manager" not in st.session_state:
-        # Internal key updated to tat
         st.session_state.cookie_manager = stx.CookieManager(key="tat_v1_mgr")
     return st.session_state.cookie_manager
 
@@ -46,7 +45,7 @@ def main():
         </style>
     """, unsafe_allow_html=True)
 
-    # AUTH GATE - Internal key updated to tat_user_id
+    # AUTH GATE
     if "user" not in st.session_state or st.session_state.user is None:
         st.session_state.user = manager.get('tat_user_id')
 
@@ -59,7 +58,6 @@ def main():
                 try:
                     local_db = get_db()
                     res = local_db.auth.sign_in_with_password({"email": email, "password": pw})
-                    
                     if res.user:
                         st.session_state.user = res.user.id
                         manager.set('tat_user_id', res.user.id)
@@ -78,15 +76,14 @@ def main():
         st.session_state.user = None
         st.rerun()
 
-if nav == "Mission Logistics":
+    # --- ALL LOGIC BELOW MUST BE INDENTED TO STAY INSIDE main() ---
+    if nav == "Mission Logistics":
         st.header("🪖 Comprehensive Military Logistics")
-        
         tab1, tab2, tab3 = st.tabs(["Duty Travel", "Professional Gear", "VA & Medical Transit"])
 
         with tab1:
             st.subheader("Duty Travel")
             with st.form("travel_v3", clear_on_submit=True):
-                # ... (Keep your existing columns c1 and c2 here) ...
                 c1, c2 = st.columns(2)
                 with c1:
                     t_date = st.date_input("Travel Date", key="date_id")
@@ -106,14 +103,12 @@ if nav == "Mission Logistics":
                     total_reimb = st.number_input("Total Cash Received", min_value=0.0, key="cash")
 
                 if st.form_submit_button("LOG COMPLETE MISSION"):
-                    # 1. THE CALCULATIONS
                     m_gap = (miles_act * 0.725) - (miles_paid * 0.225)
                     total_exp = lodging + flight + rental + rent_fuel + laundry + airport_etc + (meals_days * 59.0)
                     final_impact = max(0.0, (m_gap + total_exp) - total_reimb)
                     
-                    # 2. THE INSERT (Mapped to your DB columns)
                     db.table("logs").insert({
-                        "user_id": st.session_state.user,
+                        "user_id": uid,
                         "date": str(t_date),
                         "purpose": "Mission Travel",
                         "miles": miles_act,
@@ -129,7 +124,6 @@ if nav == "Mission Logistics":
         with tab2:
             st.subheader("Professional Gear")
             with st.form("gear_form"):
-                # ... (Keep your gear inputs) ...
                 u_maint = st.number_input("Uniform Cleaning/Repair", min_value=0.0, key="u_maint")
                 insignia = st.number_input("Rank/Patches/Medals", min_value=0.0, key="u_insig")
                 equipment = st.number_input("Duty Gear (Boots, GPS, Tools)", min_value=0.0, key="u_equip")
@@ -137,9 +131,8 @@ if nav == "Mission Logistics":
                 
                 if st.form_submit_button("LOG GEAR"):
                     total_g = u_maint + insignia + equipment + dues
-                    # Mapped to your 'purpose' and 'total_deduction' columns
                     db.table("logs").insert({
-                        "user_id": st.session_state.user, 
+                        "user_id": uid, 
                         "date": str(datetime.date.today()), 
                         "purpose": "Professional Gear/Maintenance", 
                         "total_deduction": total_g
@@ -154,9 +147,8 @@ if nav == "Mission Logistics":
                 
                 if st.form_submit_button("LOG MEDICAL MILES"):
                     med_total = (med_miles * 0.22) + (charity_miles * 0.14)
-                    # Mapped to your 'purpose', 'miles', and 'total_deduction' columns
                     db.table("logs").insert({
-                        "user_id": st.session_state.user, 
+                        "user_id": uid, 
                         "date": str(datetime.date.today()), 
                         "purpose": "VA Medical/Charity Travel",
                         "miles": med_miles + charity_miles,
@@ -164,7 +156,7 @@ if nav == "Mission Logistics":
                     }).execute()
                     st.success(f"Medical Logged: ${med_total:,.2f}")
 
-  elif nav == "Intelligence":
+    elif nav == "Intelligence":
         st.header("📊 Tactical Report")
         try:
             res = db.table("logs").select(
@@ -180,5 +172,6 @@ if nav == "Mission Logistics":
         except Exception as e:
             st.error(f"Intelligence Sector Error: {str(e)}")
 
+# --- FINAL BOOTSTRAP ---
 if __name__ == "__main__":
     main()

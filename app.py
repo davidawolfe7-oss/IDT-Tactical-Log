@@ -32,7 +32,7 @@ def main():
             color: #FFFFFF !important;
         }
         [data-testid="stSidebar"] { background-color: rgba(0, 0, 0, 0.9) !important; }
-        div[data-testid="stForm"] {
+        div[data-testid="st_form"] {
             background-color: rgba(0, 0, 0, 0.8) !important;
             border: 2px solid #3C3B6E !important;
             border-radius: 10px; padding: 25px;
@@ -80,17 +80,17 @@ def main():
         st.header("🪖 Comprehensive Military Logistics")
         tab1, tab2, tab3, tab4 = st.tabs(["Duty Travel", "Professional Gear", "VA & Medical Transit", "Vault Upload"])
 
-with tab1:
+        with tab1:
             st.subheader("Duty Travel")
             
-            # --- MISSION PURPOSE BLOCK (Always Visible) ---
+            # --- MISSION PURPOSE BLOCK ---
             st.info("""
             **PURPOSE:** Track unreimbursed costs for official military travel (IDT, AT, or Mobilization). 
             This module calculates the 'Mileage Gap'—the difference between actual vehicle wear-and-tear costs and 
             the government reimbursement rate.
             """)
 
-            # --- TACTICAL GUIDANCE (Now in a Dropdown) ---
+            # --- TACTICAL GUIDANCE (Dropdown) ---
             with st.expander("📖 Strategic Overview: The Mileage Gap (Click to Expand)"):
                 st.write("""
                 **WHAT IS THE MILEAGE GAP?**
